@@ -65,6 +65,24 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      # Uji reversibilitas HARUS jalan di skema kosong, sebelum tes membuat data.
+      # Contoh: `down` migrasi 0008 memulihkan CHECK status lama yang tidak
+      # mengenal 'pending' — ia memang WAJAR gagal bila sudah ada baris pending,
+      # karena rollback tidak boleh diam-diam menghapus data. Menjalankannya
+      # lebih dulu membuat urutan ini bermakna sekaligus tidak rapuh.
+      - name: Migrasi — uji naik, turun, naik lagi (skema kosong)
+        env:
+          APP_ENV: development
+          DATABASE_URL: postgres://angkut:angkut@localhost:5432/angkut_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          set -euo pipefail
+          go run ./api/cmd/migrate up
+          go run ./api/cmd/migrate status
+          # Rollback penuh lalu terapkan ulang membuktikan setiap down bekerja.
+          go run ./api/cmd/migrate down 100
+          go run ./api/cmd/migrate up
+
       - name: Migrasi — siapkan skema untuk tes integrasi
         env:
           APP_ENV: development
@@ -87,18 +105,6 @@ jobs:
           go build -trimpath -o bin/angkut-api ./api/cmd/api
           go build -trimpath -o bin/angkut-worker ./worker/cmd/worker
 
-      - name: Migrasi — uji naik, turun, naik lagi
-        env:
-          APP_ENV: development
-          DATABASE_URL: postgres://angkut:angkut@localhost:5432/angkut_test?sslmode=disable
-          REDIS_URL: redis://localhost:6379/0
-        run: |
-          set -euo pipefail
-          go run ./api/cmd/migrate up
-          go run ./api/cmd/migrate status
-          # Rollback penuh lalu terapkan ulang membuktikan setiap down bekerja.
-          go run ./api/cmd/migrate down 100
-          go run ./api/cmd/migrate up
 
       - name: Smoke test endpoint kesehatan
         env:
