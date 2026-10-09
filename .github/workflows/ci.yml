@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**', 'chore/**']
+  pull_request:
+    branches: [main]
+
+# Batalkan run lama pada ref yang sama agar tidak menumpuk.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.24'
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: angkut
+          POSTGRES_PASSWORD: angkut
+          POSTGRES_DB: angkut_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U angkut -d angkut_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Unduh dependensi
+        run: go mod download
+
+      - name: Verifikasi go.mod/go.sum konsisten
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum \
+            || (echo "::error::go.mod/go.sum tidak sinkron — jalankan 'go mod tidy'"; exit 1)
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit test (dengan race detector)
+        run: go test ./... -race -count=1
+
+      - name: Build binary
+        run: |
+          go build -trimpath -o bin/angkut-api ./api/cmd/api
+          go build -trimpath -o bin/angkut-worker ./worker/cmd/worker
+
+      - name: Migrasi — uji naik, turun, naik lagi
+        env:
+          APP_ENV: development
+          DATABASE_URL: postgres://angkut:angkut@localhost:5432/angkut_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          set -euo pipefail
+          go run ./api/cmd/migrate up
+          go run ./api/cmd/migrate status
+          # Rollback penuh lalu terapkan ulang membuktikan setiap down bekerja.
+          go run ./api/cmd/migrate down 100
+          go run ./api/cmd/migrate up
+
+      - name: Smoke test endpoint kesehatan
+        env:
+          APP_ENV: development
+          API_PORT: '8080'
+          DATABASE_URL: postgres://angkut:angkut@localhost:5432/angkut_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          set -euo pipefail
+          ./bin/angkut-api &
+          API_PID=$!
+          trap 'kill $API_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz > /dev/null; then break; fi
+            sleep 1
+          done
+
+          curl -sf http://localhost:8080/healthz | grep -q '"status":"ok"'
+          curl -sf http://localhost:8080/readyz  | grep -q '"success":true'
+          curl -sf http://localhost:8080/metrics | grep -q 'angkut_http_requests_total'
+          echo "Endpoint kesehatan OK"
+
+  frontend:
+    name: Frontend (Nuxt)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalasi dependensi
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Unit test (Vitest)
+        run: npm run test
+
+      - name: Build produksi
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck --if-present
