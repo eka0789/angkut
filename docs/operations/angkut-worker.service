@@ -1,0 +1,40 @@
+# Unit systemd untuk Angkut Worker (event consumer + scheduler).
+# Pasang di /etc/systemd/system/angkut-worker.service
+#   1. sudo install -o angkut -g angkut -m 0755 angkut-worker /opt/angkut/bin/
+#   2. sudo systemctl daemon-reload && sudo systemctl enable --now angkut-worker
+
+[Unit]
+Description=Angkut Worker (outbox relay, tracking sync, COD, AI, scheduler)
+Documentation=https://github.com/angkut/angkut
+After=network-online.target rabbitmq-server.service postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=angkut
+Group=angkut
+WorkingDirectory=/opt/angkut
+
+EnvironmentFile=/opt/angkut/.env
+ExecStart=/opt/angkut/bin/angkut-worker
+
+Restart=on-failure
+RestartSec=10s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/angkut/storage
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+LimitNOFILE=65536
+MemoryMax=2G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=angkut-worker
+
+[Install]
+WantedBy=multi-user.target

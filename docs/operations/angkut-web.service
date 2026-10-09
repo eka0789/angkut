@@ -1,0 +1,42 @@
+# Unit systemd untuk Angkut Web (Nuxt SSR).
+# Pasang di /etc/systemd/system/angkut-web.service
+#   Build dulu: cd web && npm ci && npm run build
+#   sudo systemctl daemon-reload && sudo systemctl enable --now angkut-web
+
+[Unit]
+Description=Angkut Web (Nuxt 4 SSR)
+Documentation=https://github.com/angkut/angkut
+After=network-online.target angkut-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=angkut
+Group=angkut
+WorkingDirectory=/opt/angkut/web
+
+EnvironmentFile=/opt/angkut/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+ExecStart=/usr/bin/node /opt/angkut/web/.output/server/index.mjs
+
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/angkut/web/.output
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+LimitNOFILE=65536
+MemoryMax=1G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=angkut-web
+
+[Install]
+WantedBy=multi-user.target

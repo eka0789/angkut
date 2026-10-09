@@ -1,0 +1,50 @@
+# Unit systemd untuk Angkut API.
+# Pasang di /etc/systemd/system/angkut-api.service
+#   1. Buat user: sudo useradd --system --home /opt/angkut --shell /usr/sbin/nologin angkut
+#   2. Salin binary: sudo install -o angkut -g angkut -m 0755 angkut-api /opt/angkut/bin/
+#   3. Salin env:   sudo install -o angkut -g angkut -m 0640 .env /opt/angkut/.env
+#   4. sudo systemctl daemon-reload && sudo systemctl enable --now angkut-api
+
+[Unit]
+Description=Angkut API (logistics platform)
+Documentation=https://github.com/angkut/angkut
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=angkut
+Group=angkut
+WorkingDirectory=/opt/angkut
+
+# Rahasia TIDAK ditulis di unit ini — hanya dibaca dari EnvironmentFile.
+EnvironmentFile=/opt/angkut/.env
+ExecStart=/opt/angkut/bin/angkut-api
+
+Restart=on-failure
+RestartSec=5s
+
+# Pengerasan dasar.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/angkut/storage
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# Batas sumber daya: satu instance API tidak boleh melahap seluruh mesin.
+LimitNOFILE=65536
+MemoryMax=1G
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=angkut-api
+
+[Install]
+WantedBy=multi-user.target
