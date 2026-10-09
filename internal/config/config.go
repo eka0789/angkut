@@ -1,0 +1,260 @@
+// Package config memuat & memvalidasi konfigurasi dari environment.
+// Tidak ada credential default produksi di sini; dev default hanya agar
+// `make api` langsung bisa jalan.
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Config adalah konfigurasi lengkap proses API/worker.
+type Config struct {
+	Env      string
+	Name     string
+	Timezone string
+	LogLevel string
+
+	API  APIConfig
+	DB   DBConfig
+	RDB  RedisConfig
+	MQ   RabbitConfig
+	S3   S3Config
+	Mail MailConfig
+	Auth AuthConfig
+	Vendor VendorConfig
+	Obs  ObservabilityConfig
+	Rate RateLimitConfig
+}
+
+type APIConfig struct {
+	Port           string
+	APIURL         string
+	WebURL         string
+	ReadTimeout    time.Duration
+	WriteTimeout   time.Duration
+	IdleTimeout    time.Duration
+	ShutdownGrace  time.Duration
+	AllowedOrigins []string
+}
+
+type DBConfig struct {
+	URL      string
+	MaxConns int32
+	MinConns int32
+}
+
+type RedisConfig struct{ URL string }
+
+type RabbitConfig struct {
+	URL     string
+	Enabled bool
+}
+
+type S3Config struct {
+	Endpoint     string
+	Bucket       string
+	AccessKey    string
+	SecretKey    string
+	Region       string
+	UsePathStyle bool
+}
+
+type MailConfig struct {
+	SMTPURL  string
+	From     string
+	Enabled  bool
+}
+
+type AuthConfig struct {
+	AccessSecret   string
+	AccessTTL      time.Duration
+	RefreshTTL     time.Duration
+	ArgonMemoryKiB uint32
+	ArgonIter      uint32
+	ArgonParallel uint8
+}
+
+// VendorConfig menentukan adapter mana yang aktif. Nilai kosong/mock berarti
+// platform berjalan penuh dengan adapter tiruan — tidak ada vendor wajib.
+type VendorConfig struct {
+	CourierAdapter string
+	StoreAdapter   string
+	PaymentAdapter string
+	AIProvider     string
+	WhatsAppAdap   string
+}
+
+type ObservabilityConfig struct {
+	OTELEnabled bool
+	OTELEndpoint string
+	MetricsOn   bool
+}
+
+type RateLimitConfig struct {
+	AuthPerMin        int
+	APIPerMin         int
+	PublicTrackPerMin int
+}
+
+// IsProduction memengaruhi default keamanan (cookie, verbose error).
+func (c *Config) IsProduction() bool { return c.Env == "production" }
+
+// IsDevelopment untuk perilaku dev (log debug, mock vendor).
+func (c *Config) IsDevelopment() bool { return c.Env == "development" || c.Env == "" }
+
+// Load membaca environment dan memvalidasi hal-hal kritis.
+func Load() (*Config, error) {
+	c := &Config{
+		Env:      env("APP_ENV", "development"),
+		Name:     env("APP_NAME", "angkut"),
+		Timezone: env("APP_TIMEZONE", "Asia/Jakarta"),
+		LogLevel: env("LOG_LEVEL", "info"),
+		API: APIConfig{
+			Port:          env("API_PORT", "8080"),
+			APIURL:        env("API_URL", "http://localhost:8080"),
+			WebURL:        env("WEB_URL", "http://localhost:3000"),
+			ReadTimeout:   15 * time.Second,
+			WriteTimeout:  30 * time.Second,
+			IdleTimeout:   60 * time.Second,
+			ShutdownGrace: 20 * time.Second,
+			AllowedOrigins: splitCSV(env("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
+		},
+		DB: DBConfig{
+			URL:      env("DATABASE_URL", ""),
+			MaxConns: int32(envInt("DB_MAX_CONNS", 20)),
+			MinConns: int32(envInt("DB_MIN_CONNS", 2)),
+		},
+		RDB: RedisConfig{URL: env("REDIS_URL", "redis://localhost:6379/0")},
+		MQ: RabbitConfig{
+			URL:     env("RABBITMQ_URL", ""),
+			Enabled: envBool("RABBITMQ_ENABLED", false),
+		},
+		S3: S3Config{
+			Endpoint:     env("S3_ENDPOINT", ""),
+			Bucket:       env("S3_BUCKET", "angkut"),
+			AccessKey:    env("S3_ACCESS_KEY", ""),
+			SecretKey:    env("S3_SECRET_KEY", ""),
+			Region:       env("S3_REGION", "idn"),
+			UsePathStyle: envBool("S3_USE_PATH_STYLE", true),
+		},
+		Mail: MailConfig{
+			SMTPURL: env("SMTP_URL", ""),
+			From:    env("MAIL_FROM", "no-reply@angkut.local"),
+			Enabled: envBool("MAIL_ENABLED", false),
+		},
+		Auth: AuthConfig{
+			AccessSecret:   env("JWT_ACCESS_SECRET", "dev-only-change-me"),
+			AccessTTL:      envDuration("JWT_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:     envDuration("REFRESH_TOKEN_TTL", 720*time.Hour),
+			ArgonMemoryKiB: uint32(envInt("ARGON2_MEMORY_KIB", 65536)),
+			ArgonIter:      uint32(envInt("ARGON2_ITERATIONS", 3)),
+			ArgonParallel:  uint8(envInt("ARGON2_PARALLELISM", 2)),
+		},
+		Vendor: VendorConfig{
+			CourierAdapter: env("COURIER_ADAPTER", "mock"),
+			StoreAdapter:   env("STORE_ADAPTER", "mock"),
+			PaymentAdapter: env("PAYMENT_ADAPTER", "mock"),
+			AIProvider:     env("AI_PROVIDER", "mock"),
+			WhatsAppAdap:   env("WHATSAPP_ADAPTER", "mock"),
+		},
+		Obs: ObservabilityConfig{
+			OTELEnabled:  envBool("OTEL_ENABLED", false),
+			OTELEndpoint: env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"),
+			MetricsOn:    envBool("METRICS_ENABLED", true),
+		},
+		Rate: RateLimitConfig{
+			AuthPerMin:        envInt("RATE_LIMIT_AUTH_PER_MIN", 10),
+			APIPerMin:         envInt("RATE_LIMIT_API_PER_MIN", 120),
+			PublicTrackPerMin: envInt("RATE_LIMIT_PUBLIC_TRACK_PER_MIN", 30),
+		},
+	}
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// Validate menolak kombinasi berbahaya SEBELUM server menyala.
+func (c *Config) Validate() error {
+	var problems []string
+
+	if c.IsProduction() {
+		if c.Auth.AccessSecret == "" || c.Auth.AccessSecret == "dev-only-change-me" {
+			problems = append(problems, "JWT_ACCESS_SECRET wajib diisi dengan nilai kuat di production")
+		}
+		if c.DB.URL == "" {
+			problems = append(problems, "DATABASE_URL wajib diisi di production")
+		}
+		if strings.HasPrefix(c.API.APIURL, "http://") {
+			problems = append(problems, "API_URL harus https di production")
+		}
+	}
+	if c.DB.URL != "" && !strings.HasPrefix(c.DB.URL, "postgres") {
+		problems = append(problems, "DATABASE_URL harus berupa DSN postgres")
+	}
+	if c.RDB.URL != "" && !strings.HasPrefix(c.RDB.URL, "redis") {
+		problems = append(problems, "REDIS_URL harus berupa DSN redis")
+	}
+
+	if len(problems) > 0 {
+		return fmt.Errorf("konfigurasi tidak valid:\n- %s", strings.Join(problems, "\n- "))
+	}
+	return nil
+}
+
+// ─── helper env ──────────────────────────────────────────────────────────
+
+func env(key, def string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return strings.TrimSpace(v)
+	}
+	return def
+}
+
+func envInt(key string, def int) int {
+	if v, ok := os.LookupEnv(key); ok {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+			return n
+		}
+	}
+	return def
+}
+
+func envBool(key string, def bool) bool {
+	if v, ok := os.LookupEnv(key); ok {
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
+	}
+	return def
+}
+
+func envDuration(key string, def time.Duration) time.Duration {
+	if v, ok := os.LookupEnv(key); ok {
+		if d, err := time.ParseDuration(strings.TrimSpace(v)); err == nil {
+			return d
+		}
+	}
+	return def
+}
+
+func splitCSV(v string) []string {
+	if v == "" {
+		return nil
+	}
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
