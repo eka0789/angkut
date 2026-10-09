@@ -18,16 +18,16 @@ type Config struct {
 	Timezone string
 	LogLevel string
 
-	API  APIConfig
-	DB   DBConfig
-	RDB  RedisConfig
-	MQ   RabbitConfig
-	S3   S3Config
-	Mail MailConfig
-	Auth AuthConfig
+	API    APIConfig
+	DB     DBConfig
+	RDB    RedisConfig
+	MQ     RabbitConfig
+	S3     S3Config
+	Mail   MailConfig
+	Auth   AuthConfig
 	Vendor VendorConfig
-	Obs  ObservabilityConfig
-	Rate RateLimitConfig
+	Obs    ObservabilityConfig
+	Rate   RateLimitConfig
 }
 
 type APIConfig struct {
@@ -64,9 +64,9 @@ type S3Config struct {
 }
 
 type MailConfig struct {
-	SMTPURL  string
-	From     string
-	Enabled  bool
+	SMTPURL string
+	From    string
+	Enabled bool
 }
 
 type AuthConfig struct {
@@ -75,7 +75,16 @@ type AuthConfig struct {
 	RefreshTTL     time.Duration
 	ArgonMemoryKiB uint32
 	ArgonIter      uint32
-	ArgonParallel uint8
+	ArgonParallel  uint8
+	// SecretsKey mengenkripsi rahasia at-rest (TOTP secret per user).
+	// Wajib 32 byte base64. Tidak boleh sama dengan AccessSecret.
+	SecretsKey string
+	// Google OAuth (kosong = fitur mati dengan pesan jujur, bukan gagal diam).
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+	// OAuthStateSecret menandatangani parameter state OAuth (anti-CSRF).
+	OAuthStateSecret string
 }
 
 // VendorConfig menentukan adapter mana yang aktif. Nilai kosong/mock berarti
@@ -89,9 +98,9 @@ type VendorConfig struct {
 }
 
 type ObservabilityConfig struct {
-	OTELEnabled bool
+	OTELEnabled  bool
 	OTELEndpoint string
-	MetricsOn   bool
+	MetricsOn    bool
 }
 
 type RateLimitConfig struct {
@@ -99,6 +108,15 @@ type RateLimitConfig struct {
 	APIPerMin         int
 	PublicTrackPerMin int
 }
+
+// Nilai default khusus pengembangan. Validasi production membandingkan
+// terhadap konstanta ini (bukan literal terpisah), sehingga default dan
+// penolakannya tidak mungkin lepas sinkron.
+const (
+	defaultDevAccessSecret = "dev-only-change-me-32-chars-minimum!!"
+	defaultDevSecretsKey   = "ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzJieXRlcyE="
+	defaultDevOAuthState   = "dev-oauth-state-secret-change-me-32ch"
+)
 
 // IsProduction memengaruhi default keamanan (cookie, verbose error).
 func (c *Config) IsProduction() bool { return c.Env == "production" }
@@ -114,13 +132,13 @@ func Load() (*Config, error) {
 		Timezone: env("APP_TIMEZONE", "Asia/Jakarta"),
 		LogLevel: env("LOG_LEVEL", "info"),
 		API: APIConfig{
-			Port:          env("API_PORT", "8080"),
-			APIURL:        env("API_URL", "http://localhost:8080"),
-			WebURL:        env("WEB_URL", "http://localhost:3000"),
-			ReadTimeout:   15 * time.Second,
-			WriteTimeout:  30 * time.Second,
-			IdleTimeout:   60 * time.Second,
-			ShutdownGrace: 20 * time.Second,
+			Port:           env("API_PORT", "8080"),
+			APIURL:         env("API_URL", "http://localhost:8080"),
+			WebURL:         env("WEB_URL", "http://localhost:3000"),
+			ReadTimeout:    15 * time.Second,
+			WriteTimeout:   30 * time.Second,
+			IdleTimeout:    60 * time.Second,
+			ShutdownGrace:  20 * time.Second,
 			AllowedOrigins: splitCSV(env("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
 		},
 		DB: DBConfig{
@@ -147,12 +165,17 @@ func Load() (*Config, error) {
 			Enabled: envBool("MAIL_ENABLED", false),
 		},
 		Auth: AuthConfig{
-			AccessSecret:   env("JWT_ACCESS_SECRET", "dev-only-change-me"),
-			AccessTTL:      envDuration("JWT_ACCESS_TTL", 15*time.Minute),
-			RefreshTTL:     envDuration("REFRESH_TOKEN_TTL", 720*time.Hour),
-			ArgonMemoryKiB: uint32(envInt("ARGON2_MEMORY_KIB", 65536)),
-			ArgonIter:      uint32(envInt("ARGON2_ITERATIONS", 3)),
-			ArgonParallel:  uint8(envInt("ARGON2_PARALLELISM", 2)),
+			AccessSecret:       env("JWT_ACCESS_SECRET", defaultDevAccessSecret),
+			AccessTTL:          envDuration("JWT_ACCESS_TTL", 15*time.Minute),
+			RefreshTTL:         envDuration("REFRESH_TOKEN_TTL", 720*time.Hour),
+			ArgonMemoryKiB:     uint32(envInt("ARGON2_MEMORY_KIB", 65536)),
+			ArgonIter:          uint32(envInt("ARGON2_ITERATIONS", 3)),
+			ArgonParallel:      uint8(envInt("ARGON2_PARALLELISM", 2)),
+			SecretsKey:         env("SECRETS_ENCRYPTION_KEY", defaultDevSecretsKey),
+			GoogleClientID:     env("GOOGLE_CLIENT_ID", ""),
+			GoogleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
+			GoogleRedirectURL:  env("GOOGLE_REDIRECT_URL", "http://localhost:8080/api/v1/auth/google/callback"),
+			OAuthStateSecret:   env("OAUTH_STATE_SECRET", defaultDevOAuthState),
 		},
 		Vendor: VendorConfig{
 			CourierAdapter: env("COURIER_ADAPTER", "mock"),
@@ -183,7 +206,7 @@ func (c *Config) Validate() error {
 	var problems []string
 
 	if c.IsProduction() {
-		if c.Auth.AccessSecret == "" || c.Auth.AccessSecret == "dev-only-change-me" {
+		if c.Auth.AccessSecret == "" || c.Auth.AccessSecret == defaultDevAccessSecret {
 			problems = append(problems, "JWT_ACCESS_SECRET wajib diisi dengan nilai kuat di production")
 		}
 		if c.DB.URL == "" {
@@ -191,6 +214,15 @@ func (c *Config) Validate() error {
 		}
 		if strings.HasPrefix(c.API.APIURL, "http://") {
 			problems = append(problems, "API_URL harus https di production")
+		}
+		if c.Auth.SecretsKey == defaultDevSecretsKey {
+			problems = append(problems, "SECRETS_ENCRYPTION_KEY wajib diisi dengan kunci 32-byte base64 di production")
+		}
+		if c.Auth.OAuthStateSecret == defaultDevOAuthState {
+			problems = append(problems, "OAUTH_STATE_SECRET wajib diubah di production")
+		}
+		if c.Auth.SecretsKey == c.Auth.AccessSecret {
+			problems = append(problems, "SECRETS_ENCRYPTION_KEY harus berbeda dari JWT_ACCESS_SECRET (pemisahan kunci)")
 		}
 	}
 	if c.DB.URL != "" && !strings.HasPrefix(c.DB.URL, "postgres") {

@@ -13,11 +13,11 @@ import (
 
 // Envelope adalah bentuk respons tunggal.
 type Envelope struct {
-	Success bool           `json:"success"`
-	Data    any            `json:"data,omitempty"`
-	Error   *ErrorBody     `json:"error,omitempty"`
-	Meta    any            `json:"meta,omitempty"`
-	Message string         `json:"message,omitempty"`
+	Success bool       `json:"success"`
+	Data    any        `json:"data,omitempty"`
+	Error   *ErrorBody `json:"error,omitempty"`
+	Meta    any        `json:"meta,omitempty"`
+	Message string     `json:"message,omitempty"`
 }
 
 // ErrorBody membawa kode stabil + pesan aman; tidak pernah stack trace.

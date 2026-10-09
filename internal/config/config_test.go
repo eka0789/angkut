@@ -26,21 +26,83 @@ func TestLoadDevDefaults(t *testing.T) {
 	if c.Vendor.CourierAdapter != "mock" || c.Vendor.AIProvider != "mock" {
 		t.Errorf("vendor default harus mock, dapat %+v", c.Vendor)
 	}
+	// Google OAuth kosong = fitur mati dengan pesan jujur, bukan gagal start.
+	if c.Auth.GoogleClientID != "" {
+		t.Error("Google client ID harus kosong secara default")
+	}
 }
 
-func TestProductionRequiresSecrets(t *testing.T) {
+// validKey adalah kunci 32-byte base64 yang sah (bukan nilai dev).
+const validKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+// productionConfig menyiapkan lingkungan production yang VALID, sehingga tiap
+// tes cukup mengubah satu variabel dan memastikan validasi menangkapnya.
+func productionConfig(t *testing.T) {
+	t.Helper()
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("API_URL", "https://api.angkut.id")
-	t.Setenv("DATABASE_URL", "postgres://u:p@db:5432/angkut")
-	t.Setenv("JWT_ACCESS_SECRET", "dev-only-change-me")
+	t.Setenv("DATABASE_URL", "postgres://u:p@db:5432/angkut?sslmode=disable")
+	t.Setenv("JWT_ACCESS_SECRET", strings.Repeat("j", 40))
+	t.Setenv("SECRETS_ENCRYPTION_KEY", validKey)
+	t.Setenv("OAUTH_STATE_SECRET", strings.Repeat("o", 40))
+}
 
-	if _, err := Load(); err == nil {
-		t.Fatal("production harus menolak JWT_ACCESS_SECRET default")
-	}
-
-	t.Setenv("JWT_ACCESS_SECRET", strings.Repeat("x", 40))
+func TestProductionAcceptsProperlyConfiguredEnvironment(t *testing.T) {
+	productionConfig(t)
 	if _, err := Load(); err != nil {
-		t.Fatalf("production dengan secret kuat seharusnya lolos: %v", err)
+		t.Fatalf("production yang lengkap seharusnya lolos: %v", err)
+	}
+}
+
+func TestProductionRejectsDefaultJWTSecret(t *testing.T) {
+	productionConfig(t)
+	t.Setenv("JWT_ACCESS_SECRET", "dev-only-change-me-32-chars-minimum!!")
+	if _, err := Load(); err == nil {
+		t.Fatal("production harus menolak JWT_ACCESS_SECRET default dev")
+	}
+}
+
+func TestProductionRejectsDevEncryptionKey(t *testing.T) {
+	productionConfig(t)
+	t.Setenv("SECRETS_ENCRYPTION_KEY", defaultDevSecretsKey)
+	if _, err := Load(); err == nil {
+		t.Fatal("production harus menolak kunci enkripsi default dev")
+	}
+}
+
+func TestProductionRejectsDevOAuthStateSecret(t *testing.T) {
+	productionConfig(t)
+	t.Setenv("OAUTH_STATE_SECRET", "dev-oauth-state-secret-change-me-32ch")
+	if _, err := Load(); err == nil {
+		t.Fatal("production harus menolak OAUTH_STATE_SECRET default dev")
+	}
+}
+
+// Pemisahan kunci: kunci enkripsi rahasia dan kunci penandatanganan token tidak
+// boleh sama — kebocoran salah satunya tidak boleh melemahkan yang lain.
+func TestProductionRequiresSeparateKeys(t *testing.T) {
+	productionConfig(t)
+	shared := strings.Repeat("x", 40)
+	t.Setenv("JWT_ACCESS_SECRET", shared)
+	t.Setenv("SECRETS_ENCRYPTION_KEY", shared)
+	if _, err := Load(); err == nil {
+		t.Fatal("kunci enkripsi harus berbeda dari JWT_ACCESS_SECRET")
+	}
+}
+
+func TestProductionRequiresHTTPS(t *testing.T) {
+	productionConfig(t)
+	t.Setenv("API_URL", "http://api.angkut.id")
+	if _, err := Load(); err == nil {
+		t.Fatal("API_URL http harus ditolak di production")
+	}
+}
+
+func TestProductionRequiresDatabaseURL(t *testing.T) {
+	productionConfig(t)
+	t.Setenv("DATABASE_URL", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("DATABASE_URL kosong harus ditolak di production")
 	}
 }
 

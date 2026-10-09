@@ -20,13 +20,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/angkut/angkut/apps/internal/config"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/health"
-	"github.com/angkut/angkut/apps/internal/observability"
-	apihttp "github.com/angkut/angkut/apps/api/internal/interfaces/http"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
-	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
+	"github.com/angkut/angkut/apps/internal/config"
+	"github.com/angkut/angkut/apps/internal/observability"
 	"github.com/angkut/angkut/apps/internal/version"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -52,14 +51,17 @@ func run() error {
 	closers := make([]func(context.Context) error, 0, 3)
 
 	// ── Postgres ─────────────────────────────────────────────────────────
+	// pool dideklarasikan di luar blok agar dapat diteruskan ke perakit router.
+	var pool *pgxpool.Pool
 	if cfg.DB.URL != "" {
-		pool, err := openPostgres(context.Background(), cfg)
+		p, err := openPostgres(context.Background(), cfg)
 		if err != nil {
 			if cfg.IsProduction() {
 				return fmt.Errorf("membuka postgres: %w", err)
 			}
 			log.Warn("postgres tidak tersedia — lanjut tanpa DB (mode dev)", "error", err)
 		} else {
+			pool = p
 			checkers = append(checkers, health.New("postgres", pool))
 			closers = append(closers, func(context.Context) error { pool.Close(); return nil })
 			log.Info("postgres terhubung")
@@ -84,12 +86,10 @@ func run() error {
 	}
 
 	// ── Router & server ──────────────────────────────────────────────────
-	router := apihttp.NewRouter(apihttp.Deps{
-		Config:   cfg,
-		Metrics:  metrics,
-		Ready:    checkers,
-		APILimit: middleware.NewMemoryLimiter(cfg.Rate.APIPerMin),
-	})
+	router, err := buildRouter(cfg, log, pool, metrics, checkers)
+	if err != nil {
+		return err
+	}
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.API.Port,

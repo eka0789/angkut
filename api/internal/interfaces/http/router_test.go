@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/angkut/angkut/apps/internal/config"
-	"github.com/angkut/angkut/apps/internal/observability"
 	apihttp "github.com/angkut/angkut/apps/api/internal/interfaces/http"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
+	"github.com/angkut/angkut/apps/internal/config"
+	"github.com/angkut/angkut/apps/internal/observability"
 )
 
 func newTestRouter(t *testing.T) http.Handler {
