@@ -65,8 +65,22 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Migrasi — siapkan skema untuk tes integrasi
+        env:
+          APP_ENV: development
+          DATABASE_URL: postgres://angkut:angkut@localhost:5432/angkut_test?sslmode=disable
+        run: go run ./api/cmd/migrate up
+
       - name: Unit test (dengan race detector)
         run: go test ./... -race -count=1
+
+      # Gate Phase 2: membuktikan 0 temuan cross-tenant terhadap database nyata.
+      # Tanpa DATABASE_URL tes ini dilewati, jadi variabelnya wajib ada di sini.
+      - name: Tes isolasi cross-tenant
+        env:
+          APP_ENV: development
+          DATABASE_URL: postgres://angkut:angkut@localhost:5432/angkut_test?sslmode=disable
+        run: go test ./api/test/integration/... -v -count=1
 
       - name: Build binary
         run: |
