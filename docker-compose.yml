@@ -1,0 +1,116 @@
+# Docker Compose — dependensi dev Angkut
+# Pakai: make up   (stack siap untuk api, worker, web yang dijalankan di host)
+
+name: angkut
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: angkut-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-angkut}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-angkut}
+      POSTGRES_DB: ${POSTGRES_DB:-angkut}
+      # pg_trgm + unaccent dipakai untuk search (ADR-006)
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-angkut} -d ${POSTGRES_DB:-angkut}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: angkut-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: angkut-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-angkut}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-angkut}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-angkut}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"   # UI: http://localhost:15672
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    container_name: angkut-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-angkutminio}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-angkutminio123}
+    ports:
+      - "${S3_PORT:-9000}:9000"
+      - "${S3_CONSOLE_PORT:-9001}:9001"        # Console: http://localhost:9001
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Membuat bucket default sekali jalan (label, export, bukti)
+  minio-init:
+    image: minio/mc:latest
+    container_name: angkut-minio-init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-angkutminio} ${S3_SECRET_KEY:-angkutminio123}; do sleep 2; done;
+      mc mb --ignore-existing local/${S3_BUCKET:-angkut};
+      mc anonymous set none local/${S3_BUCKET:-angkut};
+      echo '[minio-init] bucket ${S3_BUCKET:-angkut} siap';
+      "
+    restart: "no"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: angkut-mailpit
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"        # UI: http://localhost:8025
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitmqdata:
+  miniodata:

@@ -1,0 +1,27 @@
+# Abaikan hasil build
+bin/
+*.exe
+*.test
+*.out
+
+# Node
+node_modules/
+web/.nuxt/
+web/.output/
+web/dist/
+web/.env
+
+# Env & secret
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Log & data lokal
+*.log
+data/
