@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, 'feat/**', 'fix/**', 'chore/**']
+    # `dev` adalah branch development utama (kebijakan: dilarang commit ke main).
+    branches: [dev, main, 'feat/**', 'fix/**', 'chore/**']
   pull_request:
-    branches: [main]
+    # PR target: dev (integrasi berkelanjutan) dan main (saat rilis).
+    branches: [dev, main]
 
 # Batalkan run lama pada ref yang sama agar tidak menumpuk.
 concurrency:
