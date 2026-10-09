@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="132" height="32" viewBox="0 0 132 32" role="img" aria-label="Angkut">
+  <rect width="32" height="32" rx="8" fill="#1F5EFF"/>
+  <path d="M8 20.5 16 9l8 11.5h-4.6L16 15.2 12.6 20.5H8Z" fill="#fff"/>
+  <circle cx="16" cy="23" r="2" fill="#00C48C"/>
+  <text x="42" y="22" font-family="Inter, system-ui, sans-serif" font-size="17" font-weight="700" fill="#0B1220">Angkut</text>
+</svg>
