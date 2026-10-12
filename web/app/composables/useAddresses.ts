@@ -25,7 +25,7 @@ export function useAddresses() {
   }
 
   async function remove(id: string): Promise<void> {
-    return apiFetch<void>(`/api/v1/addresses/${id}`, { method: 'DELETE' })
+    await apiFetch<Record<string, never>>(`/api/v1/addresses/${id}`, { method: 'DELETE' })
   }
 
   async function validate(data: { province_id: string, city_id: string, district_id: string, village_id?: string, postal_code?: string }): Promise<AddressValidationResult> {
