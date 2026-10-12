@@ -4,10 +4,21 @@
 import { navSections } from '~/utils/navigation'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useT()
+const { session, isAuthenticated, logout } = useAuth()
 
 const isActive = (to: string): boolean =>
   to === '/dashboard' ? route.path === to : route.path.startsWith(to)
+
+/** Nama organisasi aktif (untuk penanda tenant di topbar). */
+const activeOrgName = computed(() =>
+  session.value?.organizations.find(o => o.id === session.value?.active_org_id)?.name ?? '')
+
+async function onLogout() {
+  await logout()
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -55,6 +66,22 @@ const isActive = (to: string): boolean =>
         </div>
         <div class="shell-topbar-actions">
           <slot name="actions" />
+          <div
+            v-if="isAuthenticated && session"
+            class="shell-user"
+          >
+            <span class="shell-user-meta">
+              <span class="shell-user-name">{{ session.user.name || session.user.email }}</span>
+              <span class="shell-user-org">{{ activeOrgName }}</span>
+            </span>
+            <button
+              type="button"
+              class="shell-logout"
+              @click="onLogout"
+            >
+              {{ t('auth.logout') }}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -157,6 +184,45 @@ const isActive = (to: string): boolean =>
 
 .shell-topbar-title {
   font-weight: 600;
+}
+
+.shell-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.shell-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.shell-user-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.shell-user-org {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.shell-logout {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+  cursor: pointer;
+}
+
+.shell-logout:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
 }
 
 .shell-content {

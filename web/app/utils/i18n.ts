@@ -28,13 +28,59 @@ export const id = {
   'nav.pricing': 'Harga',
   'nav.trackPackage': 'Lacak Paket',
 
-  // Auth
+  // Auth — bersama
   'auth.login': 'Masuk',
   'auth.register': 'Daftar gratis',
   'auth.logout': 'Keluar',
   'auth.email': 'Email',
   'auth.password': 'Kata sandi',
+  'auth.newPassword': 'Kata sandi baru',
+  'auth.confirm_password': 'Konfirmasi kata sandi',
+  'auth.name': 'Nama lengkap',
+  'auth.organization_name': 'Nama organisasi',
   'auth.forgotPassword': 'Lupa kata sandi?',
+  'auth.or': 'atau',
+  'auth.back_to_login': 'Kembali ke halaman masuk',
+
+  // Auth — masuk
+  'auth.login_subtitle': 'Masuk ke akun Angkut Anda.',
+  'auth.check_fields': 'Periksa kembali kolom yang ditandai.',
+  'auth.no_account': 'Belum punya akun?',
+  'auth.continue_with_google': 'Lanjutkan dengan Google',
+  'auth.two_factor': 'Verifikasi dua langkah',
+  'auth.mfa_subtitle': 'Masukkan kode dari aplikasi autentikasi Anda.',
+  'auth.mfa_code_label': 'Kode verifikasi',
+  'auth.mfa_code_placeholder': '123456',
+  'auth.mfa_recovery_hint': 'Kode pemulihan juga dapat digunakan.',
+
+  // Auth — daftar
+  'auth.register_subtitle': 'Buat akun dan organisasi pertama Anda.',
+  'auth.create_account': 'Buat akun',
+  'auth.already_account': 'Sudah punya akun?',
+  'auth.organization_hint': 'Contoh: Toko Berkah Jaya.',
+  'auth.password_hint': 'Minimal 8 karakter.',
+
+  // Auth — verifikasi email
+  'auth.verify_email_title': 'Verifikasi email',
+  'auth.verifying': 'Memverifikasi token…',
+  'auth.verify_success': 'Email berhasil diverifikasi.',
+  'auth.verify_hint': 'Buka tautan dalam email untuk mengaktifkan akun Anda.',
+  'auth.verify_failed_hint': 'Tautan mungkin sudah kedaluwarsa atau pernah dipakai.',
+  'auth.redirecting_to_login': 'Mengalihkan ke halaman masuk…',
+  'auth.check_email_sent': 'Kami telah mengirim tautan verifikasi ke',
+  'auth.email_sent_hint': 'Periksa folder spam bila tidak muncul dalam beberapa menit.',
+  'auth.resend': 'Kirim ulang email verifikasi',
+  'auth.resend_done': 'Email verifikasi dikirim ulang (bila terdaftar).',
+
+  // Auth — lupa / reset kata sandi
+  'auth.forgot_subtitle': 'Masukkan email Anda. Kami akan mengirim tautan reset.',
+  'auth.send_reset_link': 'Kirim tautan reset',
+  'auth.email_sent_generic': 'Jika email terdaftar, tautan reset telah kami kirim.',
+  'auth.resetPassword': 'Atur ulang kata sandi',
+  'auth.reset_subtitle': 'Tentukan kata sandi baru untuk akun Anda.',
+  'auth.save_new_password': 'Simpan kata sandi baru',
+  'auth.invalid_token': 'Token tidak ditemukan atau tidak valid.',
+  'auth.passwords_do_not_match': 'Kedua kata sandi tidak sama.',
 
   // Umum
   'common.loading': 'Memuat…',
@@ -43,12 +89,37 @@ export const id = {
   'common.retry': 'Coba lagi',
   'common.search': 'Cari',
   'common.save': 'Simpan',
+  'common.remove': 'Hapus',
+  'common.verify': 'Verifikasi',
   'common.cancel': 'Batal',
   'common.confirm': 'Konfirmasi',
   'common.next': 'Lanjut',
   'common.back': 'Kembali',
   'common.status': 'Status',
   'common.actions': 'Aksi',
+
+  // Pengaturan organisasi & anggota
+  'settings.organization_title': 'Pengaturan Organisasi',
+  'settings.organization_subtitle': 'Profil organisasi dan keanggotaan tim.',
+  'settings.profile': 'Profil organisasi',
+  'settings.field_name': 'Nama tampilan',
+  'settings.field_legal_name': 'Nama badan usaha',
+  'settings.field_business_type': 'Jenis usaha',
+  'settings.field_phone': 'Telepon',
+  'settings.field_timezone': 'Zona waktu',
+  'settings.saved': 'Perubahan berhasil disimpan.',
+  'settings.read_only': 'Hanya pemilik atau admin yang dapat mengubah pengaturan.',
+  'settings.members': 'Anggota',
+  'settings.you': 'Anda',
+  'settings.role_for': 'Peran untuk',
+  'settings.invite_email': 'Email anggota',
+  'settings.invite_placeholder': 'nama@perusahaan.com',
+  'settings.invite_role': 'Peran',
+  'settings.invite': 'Undang',
+  'settings.invited': 'Undangan dikirim ke {email}.',
+  'settings.invite_existing': '{email} sudah terdaftar — keanggotaan langsung ditambahkan.',
+  'settings.no_members': 'Belum ada anggota selain Anda.',
+  'settings.confirm_remove': 'Yakin ingin mengeluarkan {name} dari organisasi?',
 
   // Status pengiriman (kanonik)
   'status.pending': 'Menunggu',

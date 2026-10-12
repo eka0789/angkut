@@ -33,6 +33,14 @@
   --color-status-returned: #7c5cff;
   --color-status-cancelled: #8a94a6;
 
+  /* ── Umpan balik (form & alert) ────────────────────────────────────── */
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecec;
+  --color-success: #12805c;
+  --color-success-soft: #eaf7ee;
+  --color-warning: #b54708;
+  --color-warning-soft: #fef3e6;
+
   /* ── Sinyal finansial ──────────────────────────────────────────────── */
   --color-money-positive: #00a06b;
   --color-money-negative: #e5484d;
