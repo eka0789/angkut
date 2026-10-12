@@ -26,6 +26,8 @@ type Deps struct {
 	AuthHandler         *handler.AuthHandler
 	OrganizationHandler *handler.OrganizationHandler
 	GoogleOAuthHandler  *handler.GoogleOAuthHandler
+	RegionHandler       *handler.RegionHandler
+	AddressHandler      *handler.AddressHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -65,6 +67,8 @@ func NewRouter(d Deps) http.Handler {
 
 		registerAuthRoutes(api, d)
 		registerOrganizationRoutes(api, d)
+		registerRegionRoutes(api, d)
+		registerAddressRoutes(api, d)
 
 		// Modul berikutnya (stores, shipments, tracking, cod, ...) didaftarkan
 		// pada fase terkait — lihat dev-docs/ai/TASKS.md.
@@ -158,5 +162,30 @@ func registerOrganizationRoutes(api chi.Router, d Deps) {
 			one.Get("/roles", d.OrganizationHandler.ListRoles)
 			one.Get("/permissions", d.OrganizationHandler.ListPermissions)
 		})
+	})
+}
+
+// registerRegionRoutes mendaftarkan grup /regions (publik, rate-limited).
+func registerRegionRoutes(api chi.Router, d Deps) {
+	api.Route("/regions", func(regions chi.Router) {
+		if d.RegionHandler == nil {
+			return
+		}
+		if d.APILimit != nil {
+			regions.Use(middleware.RateLimit(d.APILimit, middleware.KeyByIP))
+		}
+		d.RegionHandler.RegisterRoutes(regions)
+	})
+}
+
+// registerAddressRoutes mendaftarkan grup /addresses (butuh auth + tenant).
+func registerAddressRoutes(api chi.Router, d Deps) {
+	api.Route("/addresses", func(addrs chi.Router) {
+		if d.AddressHandler == nil || d.Authenticate == nil {
+			return
+		}
+		addrs.Use(middleware.Auth(d.Authenticate))
+		addrs.Use(middleware.Tenant())
+		d.AddressHandler.RegisterRoutes(addrs)
 	})
 }

@@ -52,3 +52,6 @@ func normalizeIP(addr string) string {
 
 // unauthorized mengembalikan error standar untuk request tanpa identitas.
 func unauthorized() error { return shared.ErrUnauthorized }
+
+// ValidationError membuat typed validation error dengan detail field.
+func ValidationError(fields map[string]string) error { return shared.Validation(fields) }

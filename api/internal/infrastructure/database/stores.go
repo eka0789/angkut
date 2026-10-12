@@ -49,5 +49,11 @@ func (s *Stores) Orgs() *OrganizationRepo { return &OrganizationRepo{q: s.q} }
 // Audit mengembalikan repository audit.
 func (s *Stores) Audit() *AuditRepo { return &AuditRepo{q: s.q} }
 
+// Regions mengembalikan repository referensi wilayah publik.
+func (s *Stores) Regions() *RegionRepo { return &RegionRepo{q: s.q} }
+
+// Addresses mengembalikan repository alamat tenant-scoped.
+func (s *Stores) Addresses() *AddressRepo { return &AddressRepo{q: s.q} }
+
 // Querier mengembalikan querier aktif (pool atau tx).
 func (s *Stores) Querier() Querier { return s.q }
