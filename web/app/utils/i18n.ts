@@ -24,6 +24,7 @@ export const id = {
   'nav.intelligence': 'Kecerdasan',
   'nav.aiAssistant': 'Asisten AI',
   'nav.settings': 'Pengaturan',
+  'nav.addresses': 'Alamat',
   'nav.features': 'Fitur',
   'nav.pricing': 'Harga',
   'nav.trackPackage': 'Lacak Paket',

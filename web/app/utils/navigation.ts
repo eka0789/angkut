@@ -46,6 +46,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: 'nav.aiAssistant', to: '/ai', icon: '✦' },
       { label: 'nav.settings', to: '/settings/organization', icon: '⚙' },
+      { label: 'nav.addresses', to: '/settings/addresses', icon: '⌖' },
     ],
   },
 ]
