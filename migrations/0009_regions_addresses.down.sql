@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS addresses;
+DROP TABLE IF EXISTS postal_codes;
+DROP TABLE IF EXISTS villages;
+DROP TABLE IF EXISTS districts;
+DROP TABLE IF EXISTS cities;
+DROP TABLE IF EXISTS provinces;
