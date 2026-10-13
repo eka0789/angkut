@@ -6,6 +6,7 @@ package mockcourier
 
 import (
 	"context"
+	"math"
 
 	"github.com/angkut/angkut/apps/api/internal/domain/courier"
 )
@@ -24,9 +25,11 @@ func New(code string, repo courier.Repository) *Provider {
 // Code mengembalikan kode kurir yang dilayani.
 func (p *Provider) Code() string { return p.code }
 
-// FetchRates menghitung tarif semua layanan aktif kurir ini untuk rute pada
-// berat tertentu. Layanan tanpa tarif yang cocok dilewati (bukan error) —
-// kurir nyata juga boleh tidak melayani rute tertentu.
+// FetchRates menghitung tarif semua layanan aktif kurir ini untuk rute.
+// Berat chargeable dihitung PER LAYANAN (divisor volumetrik bisa berbeda),
+// dibulatkan ke atas ke step dari query, lalu dicocokkan ke tier tarif.
+// Layanan tanpa tarif yang cocok dilewati (bukan error) — kurir nyata juga
+// boleh tidak melayani rute tertentu.
 func (p *Provider) FetchRates(ctx context.Context, q courier.RateQuery) ([]courier.ServiceRate, error) {
 	c, err := p.repo.GetByCode(ctx, p.code)
 	if err != nil {
@@ -52,23 +55,46 @@ func (p *Provider) FetchRates(ctx context.Context, q courier.RateQuery) ([]couri
 		if q.IsCOD && !s.SupportsCOD {
 			continue
 		}
+		wr := p.weights(q, s.VolumetricDivisor)
 		rates, err := p.repo.FindRates(ctx, s.ID, originZone.Code, destZone.Code)
 		if err != nil {
 			return nil, err
 		}
-		rate, ok := matchRate(rates, q.WeightKG)
+		rate, ok := matchRate(rates, wr.Chargeable)
 		if !ok {
 			continue
 		}
 		out = append(out, courier.ServiceRate{
-			Courier:         *c,
-			Service:         s,
-			Price:           rate.Price,
-			OriginZone:      originZone.Code,
-			DestinationZone: destZone.Code,
+			Courier:          *c,
+			Service:          s,
+			Price:            rate.Price,
+			OriginZone:       originZone.Code,
+			DestinationZone:  destZone.Code,
+			ChargeableWeight: wr.Chargeable,
+			VolumetricWeight: wr.Volumetric,
 		})
 	}
 	return out, nil
+}
+
+// weights menghitung berat aktual/volumetrik/chargeable untuk satu layanan.
+func (p *Provider) weights(q courier.RateQuery, divisor int) courier.WeightResult {
+	var vol float64
+	if q.Dimensions != nil && q.Dimensions.Length > 0 && q.Dimensions.Width > 0 && q.Dimensions.Height > 0 {
+		vol = float64(q.Dimensions.VolumetricWeight(divisor))
+	}
+	chargeable := q.ActualWeightKG
+	if vol > chargeable {
+		chargeable = vol
+	}
+	if q.WeightRoundUpStepKG > 0 {
+		chargeable = math.Ceil(chargeable/q.WeightRoundUpStepKG) * q.WeightRoundUpStepKG
+	}
+	return courier.WeightResult{
+		Actual:     q.ActualWeightKG,
+		Volumetric: vol,
+		Chargeable: chargeable,
+	}
 }
 
 // matchRate memilih rate pertama yang mencakup berat (tier sudah urut naik).

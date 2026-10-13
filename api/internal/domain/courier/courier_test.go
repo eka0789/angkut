@@ -3,6 +3,7 @@ package courier_test
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/angkut/angkut/apps/api/internal/domain/courier"
@@ -44,11 +45,11 @@ func TestRateMatchesWeight(t *testing.T) {
 func ptr(v float64) *float64 { return &v }
 
 func TestRateQueryValidate(t *testing.T) {
-	ok := courier.RateQuery{OriginCityID: "3171", DestinationCityID: "3273", WeightKG: 1.5}
+	ok := courier.RateQuery{OriginCityID: "3171", DestinationCityID: "3273", ActualWeightKG: 1.5}
 	if err := ok.Validate(); err != nil {
 		t.Fatalf("query valid harus lolos: %v", err)
 	}
-	bad := courier.RateQuery{OriginCityID: "", DestinationCityID: "3273", WeightKG: 0}
+	bad := courier.RateQuery{OriginCityID: "", DestinationCityID: "3273", ActualWeightKG: 0}
 	if err := bad.Validate(); err == nil {
 		t.Fatal("query tanpa asal/berat harus gagal validasi")
 	}
@@ -72,15 +73,17 @@ func TestRegistry(t *testing.T) {
 	}
 }
 
-// Alur mock provider: resolve zona → layanan aktif → rate tier yang cocok.
+// Alur mock provider: resolve zona → layanan aktif → rate tier yang cocok
+// pada berat chargeable per layanan.
 func TestMockFlow(t *testing.T) {
 	repo := &stubRepo{}
 	p := mockOf("jne", repo)
 
+	// Berat aktual 2 kg, tanpa dimensi → chargeable 2 kg → tier 1–5.
 	out, err := p.FetchRates(context.Background(), courier.RateQuery{
 		OriginCityID:      "3171",
 		DestinationCityID: "3273",
-		WeightKG:          2,
+		ActualWeightKG:    2,
 	})
 	if err != nil {
 		t.Fatalf("FetchRates: %v", err)
@@ -93,6 +96,38 @@ func TestMockFlow(t *testing.T) {
 	}
 	if out[0].OriginZone != "ZONA_JABODETABEK" || out[0].DestinationZone != "ZONA_JAWA" {
 		t.Fatalf("zona salah: %s → %s", out[0].OriginZone, out[0].DestinationZone)
+	}
+	if out[0].ChargeableWeight != 2 {
+		t.Fatalf("chargeable weight = 2, dapat %v", out[0].ChargeableWeight)
+	}
+
+	// Pakai volumetrik: 30×20×10 cm = 6000 cm³ ÷ divisor 6000 = 1 kg →
+	// chargeable tetap 2 (aktual lebih besar).
+	out, err = p.FetchRates(context.Background(), courier.RateQuery{
+		OriginCityID:      "3171",
+		DestinationCityID: "3273",
+		ActualWeightKG:    2,
+		Dimensions:        &shared.Dimensions{Length: 30, Width: 20, Height: 10},
+	})
+	if err != nil {
+		t.Fatalf("FetchRates volumetrik: %v", err)
+	}
+	if len(out) != 2 || out[0].Price != 12000 {
+		t.Fatalf("volumetrik di bawah aktual tidak boleh mengubah tier: %+v", out)
+	}
+
+	// Volumetrik dominan: 60×40×40 = 96000 cm³ ÷ 6000 = 16 kg → tier ≥5.
+	out, err = p.FetchRates(context.Background(), courier.RateQuery{
+		OriginCityID:      "3171",
+		DestinationCityID: "3273",
+		ActualWeightKG:    2,
+		Dimensions:        &shared.Dimensions{Length: 60, Width: 40, Height: 40},
+	})
+	if err != nil {
+		t.Fatalf("FetchRates volumetrik besar: %v", err)
+	}
+	if len(out) != 2 || out[0].Price != 18000 {
+		t.Fatalf("tier volumetrik 16kg harus 18000, dapat %+v", out)
 	}
 }
 
@@ -129,15 +164,28 @@ func (m *mockAdapter) FetchRates(ctx context.Context, q courier.RateQuery) ([]co
 		if q.IsCOD && !s.SupportsCOD {
 			continue
 		}
+		// Chargeable weight per layanan (divisor bisa berbeda).
+		var vol float64
+		if q.Dimensions != nil && s.VolumetricDivisor > 0 {
+			vol = float64(q.Dimensions.VolumetricWeight(s.VolumetricDivisor))
+		}
+		chargeable := q.ActualWeightKG
+		if vol > chargeable {
+			chargeable = vol
+		}
+		if q.WeightRoundUpStepKG > 0 {
+			chargeable = math.Ceil(chargeable/q.WeightRoundUpStepKG) * q.WeightRoundUpStepKG
+		}
 		rates, err := m.repo.FindRates(ctx, s.ID, oz.Code, dz.Code)
 		if err != nil {
 			return nil, err
 		}
 		for _, r := range rates {
-			if r.MatchesWeight(q.WeightKG) {
+			if r.MatchesWeight(chargeable) {
 				out = append(out, courier.ServiceRate{
 					Courier: *c, Service: s, Price: r.Price,
 					OriginZone: oz.Code, DestinationZone: dz.Code,
+					ChargeableWeight: chargeable, VolumetricWeight: vol,
 				})
 				break
 			}

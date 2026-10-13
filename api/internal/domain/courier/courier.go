@@ -63,25 +63,40 @@ type Zone struct {
 }
 
 // RateQuery adalah permintaan pencarian tarif untuk satu rute.
-// Berat yang dipakai adalah chargeable weight — dihitung oleh pricing engine
-// (TASK-023); di TASK-022 pemanggil mengirim berat siap-pakai.
+//
+// Berat yang dikirim adalah berat AKTUAL + dimensi opsional — berat
+// chargeable dihitung per layanan (divisor volumetrik bisa berbeda antar
+// layanan) oleh provider. WeightRoundUpStepKG berasal dari konfigurasi
+// pricing; 0 berarti tanpa pembulatan.
 type RateQuery struct {
-	OriginCityID      string
-	DestinationCityID string
-	WeightKG          float64
-	IsCOD             bool
+	OriginCityID        string
+	DestinationCityID   string
+	ActualWeightKG      float64
+	Dimensions          *shared.Dimensions
+	WeightRoundUpStepKG float64
+
+	IsCOD         bool
+	CODAmount     int64
+	Insured       bool
+	DeclaredValue int64
 }
 
-// ServiceRate adalah hasil lookup: layanan + tarif yang cocok untuk query.
+// ServiceRate adalah hasil lookup provider: layanan + harga dasar untuk query.
+// Harga final (COD fee, asuransi, markup) dihitung pricing engine di layer
+// aplikasi — provider hanya menjawab tarif kurir.
 type ServiceRate struct {
 	Courier         Courier `json:"courier"`
 	Service         Service `json:"service"`
 	Price           int64   `json:"price"`
 	OriginZone      string  `json:"origin_zone"`
 	DestinationZone string  `json:"destination_zone"`
+
+	// Berat efektif yang dipakai provider mencocokkan tier.
+	ChargeableWeight float64 `json:"chargeable_weight"`
+	VolumetricWeight float64 `json:"volumetric_weight,omitempty"`
 }
 
-// Valid memeriksa invariant query tarif.
+// Validate memeriksa invariant query tarif.
 func (q RateQuery) Validate() error {
 	fields := make(map[string]string)
 	if q.OriginCityID == "" {
@@ -90,8 +105,14 @@ func (q RateQuery) Validate() error {
 	if q.DestinationCityID == "" {
 		fields["destination_city_id"] = "Kota tujuan wajib diisi."
 	}
-	if q.WeightKG <= 0 {
+	if q.ActualWeightKG <= 0 {
 		fields["weight"] = "Berat harus lebih dari 0."
+	}
+	if q.IsCOD && q.CODAmount <= 0 {
+		fields["cod_amount"] = "Nilai COD wajib diisi untuk pengiriman COD."
+	}
+	if q.Insured && q.DeclaredValue <= 0 {
+		fields["declared_value"] = "Nilai barang wajib diisi untuk asuransi."
 	}
 	if len(fields) > 0 {
 		return shared.Validation(fields)
@@ -106,6 +127,14 @@ func (r Rate) MatchesWeight(w float64) bool {
 		return false
 	}
 	return r.MaxWeight == nil || w < *r.MaxWeight
+}
+
+// WeightResult adalah hasil perhitungan berat satu paket pada satu layanan.
+// ChargeableWeight adalah dasar pencocokan tier tarif.
+type WeightResult struct {
+	Actual     float64 `json:"actual_weight"`
+	Volumetric float64 `json:"volumetric_weight"`
+	Chargeable float64 `json:"chargeable_weight"`
 }
 
 // Sentinel errors

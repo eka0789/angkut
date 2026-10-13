@@ -10,6 +10,7 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/api/internal/application/rates"
 	"github.com/angkut/angkut/apps/api/internal/domain/courier"
+	"github.com/angkut/angkut/apps/api/internal/domain/pricing"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/cryptox"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/database"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/devmail"
@@ -115,7 +116,19 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metri
 		mockcourier.New("jnt", courierRepo),
 		mockcourier.New("sicepat", courierRepo),
 	)
-	ratesSvc := rates.New(rates.Deps{Repo: courierRepo, Registry: courierRegistry, Log: log})
+	pricingEngine := pricing.New(pricing.Config{
+		VolumetricDivisorDefault: cfg.Pricing.VolumetricDivisorDefault,
+		WeightRoundUpStepKG:      cfg.Pricing.WeightRoundUpStepKG,
+		MaxChargeableWeightKG:    cfg.Pricing.MaxChargeableWeightKG,
+		CODFeeRateBps:            cfg.Pricing.CODFeeRateBps,
+		CODFeeMin:                cfg.Pricing.CODFeeMin,
+		InsuranceRateBps:         cfg.Pricing.InsuranceRateBps,
+		InsuranceMinFee:          cfg.Pricing.InsuranceMinFee,
+		MarkupFlat:               cfg.Pricing.MarkupFlat,
+		MarkupRateBps:            cfg.Pricing.MarkupRateBps,
+		PriceRoundStep:           cfg.Pricing.PriceRoundStep,
+	})
+	ratesSvc := rates.New(rates.Deps{Repo: courierRepo, Registry: courierRegistry, Engine: pricingEngine, Log: log})
 	courierHandler := handler.NewCourierHandler(ratesSvc)
 
 	// Authenticator menjembatani middleware dengan application service tanpa

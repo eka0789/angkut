@@ -18,16 +18,17 @@ type Config struct {
 	Timezone string
 	LogLevel string
 
-	API    APIConfig
-	DB     DBConfig
-	RDB    RedisConfig
-	MQ     RabbitConfig
-	S3     S3Config
-	Mail   MailConfig
-	Auth   AuthConfig
-	Vendor VendorConfig
-	Obs    ObservabilityConfig
-	Rate   RateLimitConfig
+	API     APIConfig
+	DB      DBConfig
+	RDB     RedisConfig
+	MQ      RabbitConfig
+	S3      S3Config
+	Mail    MailConfig
+	Auth    AuthConfig
+	Vendor  VendorConfig
+	Obs     ObservabilityConfig
+	Rate    RateLimitConfig
+	Pricing PricingConfig
 }
 
 type APIConfig struct {
@@ -107,6 +108,56 @@ type RateLimitConfig struct {
 	AuthPerMin        int
 	APIPerMin         int
 	PublicTrackPerMin int
+}
+
+// PricingConfig memuat seluruh parameter pricing engine (TASK-023).
+// Semua angka berasal dari env dengan default yang diberi nama — logika bisnis
+// tidak boleh memuat literal harga/berat. Rate dalam basis points: 10000 = 100%.
+type PricingConfig struct {
+	VolumetricDivisorDefault int     // pembagi volumetrik default (cm³/kg)
+	WeightRoundUpStepKG      float64 // chargeable weight dibulatkan KE ATAS ke kelipatan ini
+	MaxChargeableWeightKG    float64 // batas sanity berat chargeable
+	CODFeeRateBps            int64   // fee COD = persentase nilai COD
+	CODFeeMin                int64   // fee COD minimum (IDR)
+	InsuranceRateBps         int64   // biaya asuransi = persentase nilai barang
+	InsuranceMinFee          int64   // asuransi minimum (IDR)
+	MarkupFlat               int64   // markup platform tetap per shipment (IDR)
+	MarkupRateBps            int64   // markup platform dari harga dasar kurir
+	PriceRoundStep           int64   // pembulatan harga akhir ke kelipatan ini (IDR)
+}
+
+// validate menolak parameter pricing yang tidak masuk akal sebelum server
+// menyala — salah konfigurasi harga lebih mahal daripada gagal cepat.
+func (p PricingConfig) validate() error {
+	var problems []string
+	if p.VolumetricDivisorDefault <= 0 {
+		problems = append(problems, "PRICING_VOLUMETRIC_DIVISOR harus > 0")
+	}
+	if p.WeightRoundUpStepKG <= 0 {
+		problems = append(problems, "PRICING_WEIGHT_ROUND_STEP_KG harus > 0")
+	}
+	if p.MaxChargeableWeightKG <= 0 {
+		problems = append(problems, "PRICING_MAX_CHARGEABLE_KG harus > 0")
+	}
+	if p.CODFeeRateBps < 0 || p.CODFeeRateBps > 10000 {
+		problems = append(problems, "PRICING_COD_FEE_RATE_BPS harus 0..10000 (basis points)")
+	}
+	if p.InsuranceRateBps < 0 || p.InsuranceRateBps > 10000 {
+		problems = append(problems, "PRICING_INSURANCE_RATE_BPS harus 0..10000 (basis points)")
+	}
+	if p.MarkupRateBps < 0 || p.MarkupRateBps > 10000 {
+		problems = append(problems, "PRICING_MARKUP_RATE_BPS harus 0..10000 (basis points)")
+	}
+	if p.CODFeeMin < 0 || p.InsuranceMinFee < 0 || p.MarkupFlat < 0 {
+		problems = append(problems, "Nilai minimum/markup tidak boleh negatif")
+	}
+	if p.PriceRoundStep <= 0 {
+		problems = append(problems, "PRICING_PRICE_ROUND_STEP harus > 0")
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("pricing: %s", strings.Join(problems, "; "))
+	}
+	return nil
 }
 
 // Nilai default khusus pengembangan. Validasi production membandingkan
@@ -194,6 +245,18 @@ func Load() (*Config, error) {
 			APIPerMin:         envInt("RATE_LIMIT_API_PER_MIN", 120),
 			PublicTrackPerMin: envInt("RATE_LIMIT_PUBLIC_TRACK_PER_MIN", 30),
 		},
+		Pricing: PricingConfig{
+			VolumetricDivisorDefault: envInt("PRICING_VOLUMETRIC_DIVISOR", 6000),
+			WeightRoundUpStepKG:      envFloat("PRICING_WEIGHT_ROUND_STEP_KG", 0.1),
+			MaxChargeableWeightKG:    envFloat("PRICING_MAX_CHARGEABLE_KG", 100),
+			CODFeeRateBps:            int64(envInt("PRICING_COD_FEE_RATE_BPS", 100)),
+			CODFeeMin:                int64(envInt("PRICING_COD_FEE_MIN", 2500)),
+			InsuranceRateBps:         int64(envInt("PRICING_INSURANCE_RATE_BPS", 20)),
+			InsuranceMinFee:          int64(envInt("PRICING_INSURANCE_MIN_FEE", 2500)),
+			MarkupFlat:               int64(envInt("PRICING_MARKUP_FLAT", 0)),
+			MarkupRateBps:            int64(envInt("PRICING_MARKUP_RATE_BPS", 0)),
+			PriceRoundStep:           int64(envInt("PRICING_PRICE_ROUND_STEP", 100)),
+		},
 	}
 	if err := c.Validate(); err != nil {
 		return nil, err
@@ -231,6 +294,9 @@ func (c *Config) Validate() error {
 	if c.RDB.URL != "" && !strings.HasPrefix(c.RDB.URL, "redis") {
 		problems = append(problems, "REDIS_URL harus berupa DSN redis")
 	}
+	if err := c.Pricing.validate(); err != nil {
+		problems = append(problems, err.Error())
+	}
 
 	if len(problems) > 0 {
 		return fmt.Errorf("konfigurasi tidak valid:\n- %s", strings.Join(problems, "\n- "))
@@ -251,6 +317,15 @@ func envInt(key string, def int) int {
 	if v, ok := os.LookupEnv(key); ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			return n
+		}
+	}
+	return def
+}
+
+func envFloat(key string, def float64) float64 {
+	if v, ok := os.LookupEnv(key); ok {
+		if f, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			return f
 		}
 	}
 	return def
