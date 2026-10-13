@@ -30,6 +30,7 @@ type Deps struct {
 	RegionHandler       *handler.RegionHandler
 	AddressHandler      *handler.AddressHandler
 	CustomerHandler     *handler.CustomerHandler
+	CourierHandler      *handler.CourierHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -72,6 +73,7 @@ func NewRouter(d Deps) http.Handler {
 		registerRegionRoutes(api, d)
 		registerAddressRoutes(api, d)
 		registerCustomerRoutes(api, d)
+		registerCourierRoutes(api, d)
 
 		// Modul berikutnya (stores, shipments, tracking, cod, ...) didaftarkan
 		// pada fase terkait — lihat dev-docs/ai/TASKS.md.
@@ -229,5 +231,20 @@ func registerCustomerRoutes(api chi.Router, d Deps) {
 			admin.Use(middleware.RequireRole(organization.RoleAdmin))
 			admin.Delete("/{id}", d.CustomerHandler.Delete)
 		})
+	})
+}
+
+// registerCourierRoutes mendaftarkan grup /couriers (auth + tenant + RBAC).
+// Semua rute TASK-022 read-only (shipment.view); konfigurasi kurir menyusul
+// di Admin Panel (Phase 7).
+func registerCourierRoutes(api chi.Router, d Deps) {
+	api.Route("/couriers", func(couriers chi.Router) {
+		if d.CourierHandler == nil || d.Authenticate == nil {
+			return
+		}
+		couriers.Use(middleware.Auth(d.Authenticate))
+		couriers.Use(middleware.Tenant())
+		couriers.Use(middleware.RequirePermission("shipment.view"))
+		d.CourierHandler.RegisterRoutes(couriers)
 	})
 }

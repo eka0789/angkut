@@ -8,10 +8,13 @@ import (
 
 	"github.com/angkut/angkut/apps/api/internal/application/auth"
 	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
+	"github.com/angkut/angkut/apps/api/internal/application/rates"
+	"github.com/angkut/angkut/apps/api/internal/domain/courier"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/cryptox"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/database"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/devmail"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/googleoauth"
+	"github.com/angkut/angkut/apps/api/internal/infrastructure/mockcourier"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/tokenx"
 	apihttp "github.com/angkut/angkut/apps/api/internal/interfaces/http"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
@@ -104,6 +107,17 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metri
 	addressHandler := handler.NewAddressHandler(stores.Addresses(), stores.Regions())
 	customerHandler := handler.NewCustomerHandler(stores.Customers())
 
+	// Registry kurir: mock untuk semua kode seed; adapter sungguhan (Phase 4)
+	// cukup ditambahkan di sini dengan kode yang sama.
+	courierRepo := stores.Couriers()
+	courierRegistry := courier.NewRegistry(
+		mockcourier.New("jne", courierRepo),
+		mockcourier.New("jnt", courierRepo),
+		mockcourier.New("sicepat", courierRepo),
+	)
+	ratesSvc := rates.New(rates.Deps{Repo: courierRepo, Registry: courierRegistry, Log: log})
+	courierHandler := handler.NewCourierHandler(ratesSvc)
+
 	// Authenticator menjembatani middleware dengan application service tanpa
 	// membuat paket middleware bergantung pada application.
 	authenticate := func(ctx context.Context, rawToken string) (*middleware.Identity, error) {
@@ -128,6 +142,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metri
 	deps.RegionHandler = regionHandler
 	deps.AddressHandler = addressHandler
 	deps.CustomerHandler = customerHandler
+	deps.CourierHandler = courierHandler
 
 	return apihttp.NewRouter(deps), nil
 }
