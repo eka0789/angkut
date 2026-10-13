@@ -119,3 +119,42 @@ export interface AddressValidationResult {
   issues: string[]
   suggestions: string[]
 }
+
+/** Segmen pelanggan — sama dengan enum backend (migrasi 0011). */
+export type CustomerSegment = 'new' | 'regular' | 'vip' | 'high_risk' | 'cod_risk'
+
+/** Metrik agregat pelanggan (jsonb `customers.metrics`). */
+export interface CustomerMetrics {
+  orders_count: number
+  total_spend: number
+  aov: number
+  return_rate: number
+  cod_success_rate?: number
+  preferred_courier?: string
+}
+
+/** Pelanggan tenant-scoped. */
+export interface Customer {
+  id: string
+  organization_id: string
+  name: string
+  phone: string
+  email?: string
+  notes?: string
+  default_address_id?: string
+  segment: CustomerSegment
+  segment_source: 'auto' | 'manual'
+  metrics: CustomerMetrics
+  created_at: string
+  updated_at: string
+}
+
+/** Ringkasan metrik (endpoint GET /customers/{id}/stats). */
+export interface CustomerStats {
+  orders_count: number
+  total_spend: number
+  aov: number
+  return_rate: number
+  cod_success_rate?: number
+  preferred_courier?: string
+}

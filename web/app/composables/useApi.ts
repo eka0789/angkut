@@ -63,11 +63,20 @@ export function useApi() {
   const config = useRuntimeConfig()
   const session = useState<StoredSession | null>('auth:session', () => null)
 
-  async function apiFetch<T>(
+  /** Envelope mentah sebelum di-unwrap — dipakai bila meta dibutuhkan. */
+  interface RawEnvelope<T> {
+    success: boolean
+    data?: T
+    meta?: Record<string, unknown>
+    message?: string
+    error?: ApiErrorBody
+  }
+
+  async function requestEnvelope<T>(
     path: string,
-    options: RequestOptions = {},
-    allowRefresh = true,
-  ): Promise<T> {
+    options: RequestOptions,
+    allowRefresh: boolean,
+  ): Promise<RawEnvelope<T>> {
     const { method = 'GET', body, query, auth = true, retryOn401 = true } = options
 
     const headers: Record<string, string> = {}
@@ -78,7 +87,7 @@ export function useApi() {
       }
     }
 
-    let res: { success: boolean, data?: T, message?: string, error?: ApiErrorBody }
+    let res: RawEnvelope<T>
     try {
       res = await $fetch(path, {
         baseURL: config.public.apiBaseUrl as string,
@@ -100,7 +109,7 @@ export function useApi() {
         if (status === 401 && auth && retryOn401 && allowRefresh) {
           const refreshed = await tryRefresh()
           if (refreshed) {
-            return apiFetch<T>(path, options, false)
+            return requestEnvelope<T>(path, options, false)
           }
           dropSession()
         }
@@ -121,7 +130,26 @@ export function useApi() {
         message: res.message ?? 'Respons server tidak valid.',
       })
     }
+    return res
+  }
+
+  async function apiFetch<T>(
+    path: string,
+    options: RequestOptions = {},
+    allowRefresh = true,
+  ): Promise<T> {
+    const res = await requestEnvelope<T>(path, options, allowRefresh)
     return res.data as T
+  }
+
+  /** Sama seperti apiFetch, tetapi juga mengembalikan meta paginasi. */
+  async function apiFetchWithMeta<T>(
+    path: string,
+    options: RequestOptions = {},
+    allowRefresh = true,
+  ): Promise<{ data: T, meta?: Record<string, unknown> }> {
+    const res = await requestEnvelope<T>(path, options, allowRefresh)
+    return { data: res.data as T, meta: res.meta }
   }
 
   /** Menukar refresh token lama dengan sesi baru. Gagal → false. */
@@ -163,5 +191,5 @@ export function useApi() {
     clearStoredSession()
   }
 
-  return { apiFetch, adoptSession, dropSession, tryRefresh }
+  return { apiFetch, apiFetchWithMeta, adoptSession, dropSession, tryRefresh }
 }
