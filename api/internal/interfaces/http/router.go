@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/angkut/angkut/apps/api/internal/domain/organization"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/internal/config"
@@ -28,6 +29,7 @@ type Deps struct {
 	GoogleOAuthHandler  *handler.GoogleOAuthHandler
 	RegionHandler       *handler.RegionHandler
 	AddressHandler      *handler.AddressHandler
+	CustomerHandler     *handler.CustomerHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -69,6 +71,7 @@ func NewRouter(d Deps) http.Handler {
 		registerOrganizationRoutes(api, d)
 		registerRegionRoutes(api, d)
 		registerAddressRoutes(api, d)
+		registerCustomerRoutes(api, d)
 
 		// Modul berikutnya (stores, shipments, tracking, cod, ...) didaftarkan
 		// pada fase terkait — lihat dev-docs/ai/TASKS.md.
@@ -187,5 +190,44 @@ func registerAddressRoutes(api chi.Router, d Deps) {
 		addrs.Use(middleware.Auth(d.Authenticate))
 		addrs.Use(middleware.Tenant())
 		d.AddressHandler.RegisterRoutes(addrs)
+	})
+}
+
+// registerCustomerRoutes mendaftarkan grup /customers (auth + tenant + RBAC).
+//
+// Kontrak api-contract.md: baca customer.view, tulis customer.manage,
+// delete admin+. Middleware dipasang per-subgroup karena rantainya beda.
+func registerCustomerRoutes(api chi.Router, d Deps) {
+	api.Route("/customers", func(customers chi.Router) {
+		if d.CustomerHandler == nil || d.Authenticate == nil {
+			return
+		}
+		customers.Use(middleware.Auth(d.Authenticate))
+		customers.Use(middleware.Tenant())
+
+		// Baca: customer.view.
+		customers.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("customer.view"))
+			read.Get("/", d.CustomerHandler.List)
+			read.Route("/{id}", func(one chi.Router) {
+				one.Get("/", d.CustomerHandler.Get)
+				one.Get("/orders", d.CustomerHandler.ListOrders)
+				one.Get("/stats", d.CustomerHandler.Stats)
+			})
+		})
+
+		// Tulis: customer.manage.
+		customers.Group(func(write chi.Router) {
+			write.Use(middleware.RequirePermission("customer.manage"))
+			write.Post("/", d.CustomerHandler.Create)
+			write.Patch("/{id}", d.CustomerHandler.Update)
+			write.Post("/{id}/segment", d.CustomerHandler.SetSegment)
+		})
+
+		// Hapus: admin+.
+		customers.Group(func(admin chi.Router) {
+			admin.Use(middleware.RequireRole(organization.RoleAdmin))
+			admin.Delete("/{id}", d.CustomerHandler.Delete)
+		})
 	})
 }

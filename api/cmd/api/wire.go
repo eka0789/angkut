@@ -102,6 +102,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metri
 	oauthHandler := handler.NewGoogleOAuthHandler(authSvc, googleClient, cfg.Auth.OAuthStateSecret)
 	regionHandler := handler.NewRegionHandler(stores.Regions())
 	addressHandler := handler.NewAddressHandler(stores.Addresses(), stores.Regions())
+	customerHandler := handler.NewCustomerHandler(stores.Customers())
 
 	// Authenticator menjembatani middleware dengan application service tanpa
 	// membuat paket middleware bergantung pada application.
@@ -126,6 +127,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metri
 	deps.GoogleOAuthHandler = oauthHandler
 	deps.RegionHandler = regionHandler
 	deps.AddressHandler = addressHandler
+	deps.CustomerHandler = customerHandler
 
 	return apihttp.NewRouter(deps), nil
 }

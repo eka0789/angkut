@@ -55,5 +55,8 @@ func (s *Stores) Regions() *RegionRepo { return &RegionRepo{q: s.q} }
 // Addresses mengembalikan repository alamat tenant-scoped.
 func (s *Stores) Addresses() *AddressRepo { return &AddressRepo{q: s.q} }
 
+// Customers mengembalikan repository pelanggan tenant-scoped.
+func (s *Stores) Customers() *CustomerRepo { return &CustomerRepo{q: s.q} }
+
 // Querier mengembalikan querier aktif (pool atau tx).
 func (s *Stores) Querier() Querier { return s.q }
