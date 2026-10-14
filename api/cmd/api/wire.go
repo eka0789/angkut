@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/angkut/angkut/apps/api/internal/application/auth"
+	"github.com/angkut/angkut/apps/api/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/api/internal/application/rates"
 	"github.com/angkut/angkut/apps/api/internal/domain/courier"
@@ -150,6 +151,17 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	})
 	courierHandler := handler.NewCourierHandler(ratesSvc)
 
+	// ── Order & fulfillment (TASK-026) ───────────────────────────────────
+	storeHandler := handler.NewStoreHandler(stores.StoresRepo(), stores.Warehouses())
+	orderSvc := orderapp.New(orderapp.Deps{
+		Tx:     tx,
+		Stores: stores,
+		Orders: stores.Orders(),
+		Audit:  stores.Audit(),
+		Log:    log,
+	})
+	orderHandler := handler.NewOrderHandler(orderSvc)
+
 	// Authenticator menjembatani middleware dengan application service tanpa
 	// membuat paket middleware bergantung pada application.
 	authenticate := func(ctx context.Context, rawToken string) (*middleware.Identity, error) {
@@ -175,6 +187,8 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.AddressHandler = addressHandler
 	deps.CustomerHandler = customerHandler
 	deps.CourierHandler = courierHandler
+	deps.StoreHandler = storeHandler
+	deps.OrderHandler = orderHandler
 
 	return apihttp.NewRouter(deps), nil
 }

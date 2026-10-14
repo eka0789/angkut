@@ -60,3 +60,8 @@ func Conflict(code, message string) *Error {
 
 // Is melaporkan apakah err (atau rantai penyebabnya) adalah sentinel target.
 func Is(err error, target error) bool { return errors.Is(err, target) }
+
+// As mengisi target dengan *Error pertama dalam rantai err. Mengembalikan
+// false bila err bukan (atau tidak membungkus) *Error — pemanggil yang butuh
+// detail field validasi memakai ini alih-alih type assertion langsung.
+func As(err error, target **Error) bool { return errors.As(err, target) }

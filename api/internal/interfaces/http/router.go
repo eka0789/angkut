@@ -31,6 +31,8 @@ type Deps struct {
 	AddressHandler      *handler.AddressHandler
 	CustomerHandler     *handler.CustomerHandler
 	CourierHandler      *handler.CourierHandler
+	StoreHandler        *handler.StoreHandler
+	OrderHandler        *handler.OrderHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -74,8 +76,10 @@ func NewRouter(d Deps) http.Handler {
 		registerAddressRoutes(api, d)
 		registerCustomerRoutes(api, d)
 		registerCourierRoutes(api, d)
+		registerStoreRoutes(api, d)
+		registerOrderRoutes(api, d)
 
-		// Modul berikutnya (stores, shipments, tracking, cod, ...) didaftarkan
+		// Modul berikutnya (shipments, tracking, cod, ...) didaftarkan
 		// pada fase terkait — lihat dev-docs/ai/TASKS.md.
 	})
 
@@ -246,5 +250,80 @@ func registerCourierRoutes(api chi.Router, d Deps) {
 		couriers.Use(middleware.Tenant())
 		couriers.Use(middleware.RequirePermission("shipment.view"))
 		d.CourierHandler.RegisterRoutes(couriers)
+	})
+}
+
+// registerStoreRoutes mendaftarkan grup /stores dan /warehouses
+// (auth + tenant + RBAC). Keduanya prasyarat order & shipment: order berasal
+// dari store, shipment berangkat dari gudang (asal pengiriman).
+func registerStoreRoutes(api chi.Router, d Deps) {
+	api.Route("/stores", func(stores chi.Router) {
+		if d.StoreHandler == nil || d.Authenticate == nil {
+			return
+		}
+		stores.Use(middleware.Auth(d.Authenticate))
+		stores.Use(middleware.Tenant())
+
+		// Baca: member (store.view).
+		stores.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("store.view"))
+			read.Get("/", d.StoreHandler.ListStores)
+			read.Get("/{id}", d.StoreHandler.GetStore)
+		})
+
+		// Tulis: admin+ (kontrak API: POST/PATCH/DELETE stores = admin+).
+		stores.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleAdmin))
+			write.Post("/", d.StoreHandler.CreateStore)
+			write.Patch("/{id}", d.StoreHandler.UpdateStore)
+		})
+	})
+
+	api.Route("/warehouses", func(wh chi.Router) {
+		if d.StoreHandler == nil || d.Authenticate == nil {
+			return
+		}
+		wh.Use(middleware.Auth(d.Authenticate))
+		wh.Use(middleware.Tenant())
+
+		wh.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("warehouse.view"))
+			read.Get("/", d.StoreHandler.ListWarehouses)
+			read.Get("/{id}", d.StoreHandler.GetWarehouse)
+		})
+
+		wh.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleAdmin))
+			write.Post("/", d.StoreHandler.CreateWarehouse)
+			write.Patch("/{id}", d.StoreHandler.UpdateWarehouse)
+		})
+	})
+}
+
+// registerOrderRoutes mendaftarkan grup /orders (auth + tenant + RBAC).
+// Kontrak: baca = member (order.view), tulis = staff+ (order.manage).
+func registerOrderRoutes(api chi.Router, d Deps) {
+	api.Route("/orders", func(orders chi.Router) {
+		if d.OrderHandler == nil || d.Authenticate == nil {
+			return
+		}
+		orders.Use(middleware.Auth(d.Authenticate))
+		orders.Use(middleware.Tenant())
+
+		// Baca: member.
+		orders.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("order.view"))
+			read.Get("/", d.OrderHandler.List)
+			read.Get("/summary", d.OrderHandler.Summary)
+			read.Get("/{id}", d.OrderHandler.Get)
+		})
+
+		// Tulis: staff+.
+		orders.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleStaff))
+			write.Post("/", d.OrderHandler.Create)
+			write.Patch("/{id}", d.OrderHandler.Update)
+			write.Post("/{id}/cancel", d.OrderHandler.Cancel)
+		})
 	})
 }

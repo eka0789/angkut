@@ -61,5 +61,14 @@ func (s *Stores) Customers() *CustomerRepo { return &CustomerRepo{q: s.q} }
 // Couriers mengembalikan repository registry kurir (platform-level).
 func (s *Stores) Couriers() *CourierRepo { return &CourierRepo{q: s.q} }
 
+// Stores mengembalikan repository kanal penjualan tenant-scoped.
+func (s *Stores) StoresRepo() *StoreRepo { return &StoreRepo{q: s.q} }
+
+// Warehouses mengembalikan repository gudang tenant-scoped.
+func (s *Stores) Warehouses() *WarehouseRepo { return &WarehouseRepo{q: s.q} }
+
+// Orders mengembalikan repository order tenant-scoped.
+func (s *Stores) Orders() *OrderRepo { return &OrderRepo{q: s.q} }
+
 // Querier mengembalikan querier aktif (pool atau tx).
 func (s *Stores) Querier() Querier { return s.q }

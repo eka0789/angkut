@@ -106,29 +106,34 @@ var PermissionMatrix = map[RoleCode][]string{
 		"store.manage", "return.manage", "notification.manage",
 		"automation.manage", "analytics.view", "cod.view",
 		"ai.use", "apikey.manage",
+		"store.view", "warehouse.view",
 	},
 
 	RoleFinance: {
 		"cod.view", "cod.settle", "cod.export",
 		"payment.manage", "invoice.view", "analytics.view",
 		"shipment.view", "order.view", "return.refund", "ai.use",
+		"store.view", "warehouse.view",
 	},
 
 	RoleWarehouse: {
 		"inventory.manage", "product.manage", "warehouse.manage",
 		"shipment.manage", "shipment.pickup", "return.receive", "return.inspect",
 		"order.view", "shipment.view", "ai.use",
+		"store.view", "warehouse.view",
 	},
 
 	RoleStaff: {
 		"shipment.manage", "shipment.view", "order.manage", "order.view",
 		"customer.manage", "customer.view", "tracking.view",
 		"analytics.view", "ai.use",
+		"store.view", "warehouse.view",
 	},
 
 	RoleViewer: {
 		"shipment.view", "order.view", "customer.view", "analytics.view",
 		"inventory.view", "cod.view", "tracking.view",
+		"store.view", "warehouse.view",
 	},
 }
 

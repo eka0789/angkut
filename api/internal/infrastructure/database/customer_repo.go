@@ -29,7 +29,7 @@ func (r *CustomerRepo) Create(ctx context.Context, c *customer.Customer) error {
 		INSERT INTO customers (
 			id, organization_id, name, phone, email, notes, default_address_id,
 			segment, segment_source, metrics, created_at, updated_at
-		) VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7::uuid,''),$8,$9,CAST($10 AS jsonb),$11,$12)`,
+		) VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),NULLIF($7,'')::uuid,$8,$9,CAST($10 AS jsonb),$11,$12)`,
 		c.ID, c.OrganizationID, c.Name, c.Phone, c.Email, c.Notes, c.DefaultAddressID,
 		string(c.Segment), c.SegmentSource, string(mb), c.CreatedAt, c.UpdatedAt,
 	)
@@ -56,7 +56,7 @@ func (r *CustomerRepo) Update(ctx context.Context, c *customer.Customer) error {
 	}
 	tag, err := r.q.Exec(ctx, `
 		UPDATE customers SET name=$3, phone=$4, email=NULLIF($5,''), notes=NULLIF($6,''),
-			default_address_id=NULLIF($7::uuid,''), segment=$8, segment_source=$9, metrics=CAST($10 AS jsonb)
+			default_address_id=NULLIF($7,'')::uuid, segment=$8, segment_source=$9, metrics=CAST($10 AS jsonb)
 		WHERE organization_id=$1 AND id=$2 AND deleted_at IS NULL`,
 		c.OrganizationID, c.ID, c.Name, c.Phone, c.Email, c.Notes, c.DefaultAddressID,
 		string(c.Segment), c.SegmentSource, string(mb),

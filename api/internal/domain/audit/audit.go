@@ -61,6 +61,15 @@ const (
 	ActionMemberAdded   = "organization.member_added"
 	ActionMemberUpdated = "organization.member_updated"
 	ActionMemberRemoved = "organization.member_removed"
+
+	// Order (TASK-026).
+	ActionOrderCreated       = "order.created"
+	ActionOrderStatusChanged = "order.status_changed"
+
+	// Shipment (TASK-027/028).
+	ActionShipmentCreated  = "shipment.created"
+	ActionShipmentCanceled = "shipment.cancelled"
+	ActionShipmentLabeled  = "shipment.label_generated"
 )
 
 // New membangun entri dengan aktor manusia.
