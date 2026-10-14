@@ -29,6 +29,7 @@ type Config struct {
 	Obs     ObservabilityConfig
 	Rate    RateLimitConfig
 	Pricing PricingConfig
+	Scoring ScoringConfig
 }
 
 type APIConfig struct {
@@ -160,6 +161,64 @@ func (p PricingConfig) validate() error {
 	return nil
 }
 
+// totalBpsWeight adalah jumlah bobot scoring yang wajib 10000 (100%).
+const totalBpsWeight = 10000
+
+// ScoringConfig memuat parameter engine scoring & rekomendasi (TASK-025).
+// Bobot kriteria configurable lewat env — mengubah bobot TIDAK boleh menuntut
+// perubahan kode. Ketiga bobot harus berjumlah 10000 basis points.
+type ScoringConfig struct {
+	WeightPriceBps       int64 // bobot harga
+	WeightSpeedBps       int64 // bobot kecepatan (ETA)
+	WeightReliabilityBps int64 // bobot keandalan kurir
+
+	// ReasonThresholdPct adalah beda minimum (persen) agar alasan ditulis.
+	ReasonThresholdPct int
+	// HighReliabilityScore adalah ambang reliability_score (0..100) untuk
+	// menyebut opsi berperforma historis tinggi.
+	HighReliabilityScore float64
+	// ConfidenceBaseBps + ConfidenceSpanBps × margin skor = keyakinan (0..10000).
+	ConfidenceBaseBps int64
+	ConfidenceSpanBps int64
+	// MaxReasons membatasi jumlah alasan rekomendasi.
+	MaxReasons int
+}
+
+// validate menolak bobot scoring yang tidak masuk akal sebelum server menyala.
+func (s ScoringConfig) validate() error {
+	var problems []string
+	if s.WeightPriceBps < 0 || s.WeightSpeedBps < 0 || s.WeightReliabilityBps < 0 {
+		problems = append(problems, "SCORING_WEIGHT_* tidak boleh negatif")
+	}
+	if sum := s.WeightPriceBps + s.WeightSpeedBps + s.WeightReliabilityBps; sum != totalBpsWeight {
+		problems = append(problems, fmt.Sprintf(
+			"SCORING_WEIGHT_PRICE/SPEED/RELIABILITY_BPS harus berjumlah %d (saat ini %d)",
+			totalBpsWeight, sum))
+	}
+	if s.HighReliabilityScore <= 0 || s.HighReliabilityScore > 100 {
+		problems = append(problems, "SCORING_HIGH_RELIABILITY_SCORE harus 0..100")
+	}
+	if s.ReasonThresholdPct < 0 {
+		problems = append(problems, "SCORING_REASON_THRESHOLD_PCT tidak boleh negatif")
+	}
+	if s.ConfidenceBaseBps < 0 || s.ConfidenceBaseBps > totalBpsWeight {
+		problems = append(problems, "SCORING_CONFIDENCE_BASE_BPS harus 0..10000")
+	}
+	if s.ConfidenceSpanBps < 0 || s.ConfidenceSpanBps > totalBpsWeight {
+		problems = append(problems, "SCORING_CONFIDENCE_SPAN_BPS harus 0..10000")
+	}
+	if s.ConfidenceBaseBps+s.ConfidenceSpanBps > totalBpsWeight {
+		problems = append(problems, "SCORING_CONFIDENCE_BASE_BPS + SPAN_BPS tidak boleh melebihi 10000")
+	}
+	if s.MaxReasons <= 0 {
+		problems = append(problems, "SCORING_MAX_REASONS harus > 0")
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("scoring: %s", strings.Join(problems, "; "))
+	}
+	return nil
+}
+
 // Nilai default khusus pengembangan. Validasi production membandingkan
 // terhadap konstanta ini (bukan literal terpisah), sehingga default dan
 // penolakannya tidak mungkin lepas sinkron.
@@ -257,6 +316,19 @@ func Load() (*Config, error) {
 			MarkupRateBps:            int64(envInt("PRICING_MARKUP_RATE_BPS", 0)),
 			PriceRoundStep:           int64(envInt("PRICING_PRICE_ROUND_STEP", 100)),
 		},
+		Scoring: ScoringConfig{
+			// Default: keandalan sedikit lebih diutamakan daripada harga,
+			// karena ongkir salah pilih lebih mahal daripada selisih kecil.
+			WeightPriceBps:       int64(envInt("SCORING_WEIGHT_PRICE_BPS", 4000)),
+			WeightSpeedBps:       int64(envInt("SCORING_WEIGHT_SPEED_BPS", 2500)),
+			WeightReliabilityBps: int64(envInt("SCORING_WEIGHT_RELIABILITY_BPS", 3500)),
+
+			ReasonThresholdPct:   envInt("SCORING_REASON_THRESHOLD_PCT", 5),
+			HighReliabilityScore: envFloat("SCORING_HIGH_RELIABILITY_SCORE", 90),
+			ConfidenceBaseBps:    int64(envInt("SCORING_CONFIDENCE_BASE_BPS", 6000)),
+			ConfidenceSpanBps:    int64(envInt("SCORING_CONFIDENCE_SPAN_BPS", 3500)),
+			MaxReasons:           envInt("SCORING_MAX_REASONS", 3),
+		},
 	}
 	if err := c.Validate(); err != nil {
 		return nil, err
@@ -295,6 +367,9 @@ func (c *Config) Validate() error {
 		problems = append(problems, "REDIS_URL harus berupa DSN redis")
 	}
 	if err := c.Pricing.validate(); err != nil {
+		problems = append(problems, err.Error())
+	}
+	if err := c.Scoring.validate(); err != nil {
 		problems = append(problems, err.Error())
 	}
 

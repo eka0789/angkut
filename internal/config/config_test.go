@@ -132,3 +132,52 @@ func TestEnvHelpers(t *testing.T) {
 		t.Errorf("env fallback = %q", got)
 	}
 }
+
+func TestScoringWeightsMustSumTo10000(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("SCORING_WEIGHT_PRICE_BPS", "5000")
+	t.Setenv("SCORING_WEIGHT_SPEED_BPS", "2500")
+	t.Setenv("SCORING_WEIGHT_RELIABILITY_BPS", "3500") // total 11000
+	if _, err := Load(); err == nil {
+		t.Fatal("bobot scoring yang tidak berjumlah 10000 harus ditolak")
+	}
+}
+
+func TestScoringWeightsConfigurable(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	// Bobot murni harga — sah, dan TIDAK boleh menuntut perubahan kode.
+	t.Setenv("SCORING_WEIGHT_PRICE_BPS", "10000")
+	t.Setenv("SCORING_WEIGHT_SPEED_BPS", "0")
+	t.Setenv("SCORING_WEIGHT_RELIABILITY_BPS", "0")
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("bobot sah ditolak: %v", err)
+	}
+	if c.Scoring.WeightPriceBps != 10000 ||
+		c.Scoring.WeightSpeedBps != 0 ||
+		c.Scoring.WeightReliabilityBps != 0 {
+		t.Errorf("bobot tidak terpasang: %+v", c.Scoring)
+	}
+}
+
+func TestScoringConfidenceBaseAndSpanWithinRange(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("SCORING_CONFIDENCE_BASE_BPS", "8000")
+	t.Setenv("SCORING_CONFIDENCE_SPAN_BPS", "5000") // total 13000 > 10000
+	if _, err := Load(); err == nil {
+		t.Fatal("base+span keyakinan melebihi 10000 harus ditolak")
+	}
+}
+
+func TestScoringDefaultsValid(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("default scoring harus sah: %v", err)
+	}
+	sum := c.Scoring.WeightPriceBps + c.Scoring.WeightSpeedBps + c.Scoring.WeightReliabilityBps
+	if sum != 10000 {
+		t.Errorf("jumlah bobot default = %d, ingin 10000", sum)
+	}
+}
