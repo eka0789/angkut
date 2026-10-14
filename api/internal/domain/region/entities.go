@@ -11,35 +11,35 @@ type Province struct {
 
 // City merepresentasikan kota/kabupaten (level 2).
 type City struct {
-	ID           string `json:"id"`             // 4 digit: 3171, 3201, 3371, ...
-	ProvinceID   string `json:"province_id"`    // FK ke Province
-	Name         string `json:"name"`           // Nama kota/kabupaten
-	Type         string `json:"type"`           // "kota" atau "kabupaten"
-	CreatedAt    string `json:"created_at"`     // RFC3339
+	ID         string `json:"id"`          // 4 digit: 3171, 3201, 3371, ...
+	ProvinceID string `json:"province_id"` // FK ke Province
+	Name       string `json:"name"`        // Nama kota/kabupaten
+	Type       string `json:"type"`        // "kota" atau "kabupaten"
+	CreatedAt  string `json:"created_at"`  // RFC3339
 }
 
 // District merepresentasikan kecamatan (level 3).
 type District struct {
-	ID         string `json:"id"`              // 6 digit: 317101, 327301, ...
-	CityID     string `json:"city_id"`         // FK ke City
-	Name       string `json:"name"`            // Nama kecamatan
-	CreatedAt  string `json:"created_at"`      // RFC3339
+	ID        string `json:"id"`         // 6 digit: 317101, 327301, ...
+	CityID    string `json:"city_id"`    // FK ke City
+	Name      string `json:"name"`       // Nama kecamatan
+	CreatedAt string `json:"created_at"` // RFC3339
 }
 
 // Village merepresentasikan desa/kelurahan (level 4).
 type Village struct {
-	ID          string `json:"id"`               // 10 digit: 3171011001, ...
-	DistrictID  string `json:"district_id"`      // FK ke District
-	Name        string `json:"name"`             // Nama desa/kelurahan
-	Type        string `json:"type"`             // "desa" atau "kelurahan"
-	CreatedAt   string `json:"created_at"`       // RFC3339
+	ID         string `json:"id"`          // 10 digit: 3171011001, ...
+	DistrictID string `json:"district_id"` // FK ke District
+	Name       string `json:"name"`        // Nama desa/kelurahan
+	Type       string `json:"type"`        // "desa" atau "kelurahan"
+	CreatedAt  string `json:"created_at"`  // RFC3339
 }
 
 // PostalCode merepresentasikan kode pos.
 type PostalCode struct {
-	Code       string `json:"code"`         // 5 digit: 50241, 40111, ...
-	DistrictID string `json:"district_id"`  // FK ke District
-	CreatedAt  string `json:"created_at"`   // RFC3339
+	Code       string `json:"code"`        // 5 digit: 50241, 40111, ...
+	DistrictID string `json:"district_id"` // FK ke District
+	CreatedAt  string `json:"created_at"`  // RFC3339
 }
 
 // ValidType melaporkan apakah tipe kota valid.

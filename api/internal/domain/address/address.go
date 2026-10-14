@@ -11,23 +11,23 @@ import (
 
 // Address merepresentasikan satu alamat pengiriman/penerima yang disimpan tenant.
 type Address struct {
-	ID             string   `json:"id"`
-	OrganizationID string   `json:"organization_id"`
-	Recipient      string   `json:"recipient"`
-	Phone          string   `json:"phone"`
-	ProvinceID     string   `json:"province_id"`
-	CityID         string   `json:"city_id"`
-	DistrictID     string   `json:"district_id"`
-	VillageID      string   `json:"village_id,omitempty"`
-	PostalCode     string   `json:"postal_code,omitempty"`
-	Street         string   `json:"street"`
-	Notes          string   `json:"notes,omitempty"`
-	Latitude       *float64 `json:"latitude,omitempty"`
-	Longitude      *float64 `json:"longitude,omitempty"`
-	Label          string   `json:"label,omitempty"`
-	IsDefault      bool     `json:"is_default"`
-	Status         Status   `json:"status"`
-	CreatedBy      string   `json:"created_by"`
+	ID             string    `json:"id"`
+	OrganizationID string    `json:"organization_id"`
+	Recipient      string    `json:"recipient"`
+	Phone          string    `json:"phone"`
+	ProvinceID     string    `json:"province_id"`
+	CityID         string    `json:"city_id"`
+	DistrictID     string    `json:"district_id"`
+	VillageID      string    `json:"village_id,omitempty"`
+	PostalCode     string    `json:"postal_code,omitempty"`
+	Street         string    `json:"street"`
+	Notes          string    `json:"notes,omitempty"`
+	Latitude       *float64  `json:"latitude,omitempty"`
+	Longitude      *float64  `json:"longitude,omitempty"`
+	Label          string    `json:"label,omitempty"`
+	IsDefault      bool      `json:"is_default"`
+	Status         Status    `json:"status"`
+	CreatedBy      string    `json:"created_by"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
