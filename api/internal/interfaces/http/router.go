@@ -33,6 +33,7 @@ type Deps struct {
 	CourierHandler      *handler.CourierHandler
 	StoreHandler        *handler.StoreHandler
 	OrderHandler        *handler.OrderHandler
+	ShipmentHandler     *handler.ShipmentHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -78,8 +79,9 @@ func NewRouter(d Deps) http.Handler {
 		registerCourierRoutes(api, d)
 		registerStoreRoutes(api, d)
 		registerOrderRoutes(api, d)
+		registerShipmentRoutes(api, d)
 
-		// Modul berikutnya (shipments, tracking, cod, ...) didaftarkan
+		// Modul berikutnya (tracking, cod, ...) didaftarkan
 		// pada fase terkait — lihat dev-docs/ai/TASKS.md.
 	})
 
@@ -324,6 +326,45 @@ func registerOrderRoutes(api chi.Router, d Deps) {
 			write.Post("/", d.OrderHandler.Create)
 			write.Patch("/{id}", d.OrderHandler.Update)
 			write.Post("/{id}/cancel", d.OrderHandler.Cancel)
+		})
+	})
+}
+
+// registerShipmentRoutes mendaftarkan grup /shipments (auth + tenant + RBAC).
+// Kontrak: baca = member (shipment.view), tulis = staff+ (shipment.manage).
+//
+// Mutasi POST /shipments WAJIB menyertakan Idempotency-Key (TASK-028):
+// RequireIdempotency menolaknya lebih awal sehingga klien tidak bisa "lupa"
+// dan membuat pengiriman ganda lewat retry.
+func registerShipmentRoutes(api chi.Router, d Deps) {
+	api.Route("/shipments", func(ships chi.Router) {
+		if d.ShipmentHandler == nil || d.Authenticate == nil {
+			return
+		}
+		ships.Use(middleware.Auth(d.Authenticate))
+		ships.Use(middleware.Tenant())
+
+		// Baca: member.
+		ships.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("shipment.view"))
+			read.Get("/", d.ShipmentHandler.List)
+			read.Route("/{id}", func(one chi.Router) {
+				one.Get("/", d.ShipmentHandler.Get)
+				one.Get("/label", d.ShipmentHandler.Label)
+				one.Get("/share-link", d.ShipmentHandler.ShareLink)
+			})
+		})
+
+		// Tulis: staff+.
+		ships.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleStaff))
+			write.Group(func(mut chi.Router) {
+				// Pembuatan pengiriman wajib idempotent.
+				mut.Use(middleware.RequireIdempotency)
+				mut.Post("/", d.ShipmentHandler.Create)
+			})
+			write.Patch("/{id}", d.ShipmentHandler.Update)
+			write.Post("/{id}/cancel", d.ShipmentHandler.Cancel)
 		})
 	})
 }

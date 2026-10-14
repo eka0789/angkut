@@ -10,6 +10,7 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/api/internal/application/rates"
+	"github.com/angkut/angkut/apps/api/internal/application/shipmentapp"
 	"github.com/angkut/angkut/apps/api/internal/domain/courier"
 	"github.com/angkut/angkut/apps/api/internal/domain/pricing"
 	"github.com/angkut/angkut/apps/api/internal/domain/scoring"
@@ -162,6 +163,22 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	})
 	orderHandler := handler.NewOrderHandler(orderSvc)
 
+	// ── Shipment & label (TASK-027) ──────────────────────────────────────
+	// Generator label dibentuk per-request di handler karena format (a4/thermal)
+	// berbeda per permintaan — tidak ada state yang perlu dibagi.
+	shipmentSvc := shipmentapp.New(shipmentapp.Deps{
+		Tx:        tx,
+		Stores:    stores,
+		Shipments: stores.Shipments(),
+		Couriers:  courierRepo,
+		Registry:  courierRegistry,
+		Orders:    stores.Orders(),
+		Engine:    pricingEngine,
+		Audit:     stores.Audit(),
+		Log:       log,
+	})
+	shipmentHandler := handler.NewShipmentHandler(shipmentSvc)
+
 	// Authenticator menjembatani middleware dengan application service tanpa
 	// membuat paket middleware bergantung pada application.
 	authenticate := func(ctx context.Context, rawToken string) (*middleware.Identity, error) {
@@ -189,6 +206,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.CourierHandler = courierHandler
 	deps.StoreHandler = storeHandler
 	deps.OrderHandler = orderHandler
+	deps.ShipmentHandler = shipmentHandler
 
 	return apihttp.NewRouter(deps), nil
 }

@@ -70,5 +70,8 @@ func (s *Stores) Warehouses() *WarehouseRepo { return &WarehouseRepo{q: s.q} }
 // Orders mengembalikan repository order tenant-scoped.
 func (s *Stores) Orders() *OrderRepo { return &OrderRepo{q: s.q} }
 
+// Shipments mengembalikan repository pengiriman tenant-scoped.
+func (s *Stores) Shipments() *ShipmentRepo { return &ShipmentRepo{q: s.q} }
+
 // Querier mengembalikan querier aktif (pool atau tx).
 func (s *Stores) Querier() Querier { return s.q }

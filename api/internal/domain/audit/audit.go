@@ -67,9 +67,10 @@ const (
 	ActionOrderStatusChanged = "order.status_changed"
 
 	// Shipment (TASK-027/028).
-	ActionShipmentCreated  = "shipment.created"
-	ActionShipmentCanceled = "shipment.cancelled"
-	ActionShipmentLabeled  = "shipment.label_generated"
+	ActionShipmentCreated       = "shipment.created"
+	ActionShipmentStatusChanged = "shipment.status_changed"
+	ActionShipmentCanceled      = "shipment.cancelled"
+	ActionShipmentLabeled       = "shipment.label_generated"
 )
 
 // New membangun entri dengan aktor manusia.
