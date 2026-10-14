@@ -69,9 +69,7 @@ export function sectionTitleForPath(path: string): MessageKey | null {
  */
 export const plannedModulePrefixes = [
   '/command-center',
-  '/shipments',
   '/tracking',
-  '/orders',
   '/inventory',
   '/warehouses',
   '/customers',

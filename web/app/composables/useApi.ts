@@ -34,6 +34,11 @@ interface RequestOptions {
   auth?: boolean
   /** Set true untuk memicu refresh token otomatis saat 401 (sekali coba). */
   retryOn401?: boolean
+  /**
+   * Header tambahan (mis. Idempotency-Key). Header otorisasi & tenant ditulis
+   * SETELAH ini sehingga pemanggil tidak dapat menimpanya.
+   */
+  headers?: Record<string, string>
 }
 
 /** Simpan/muat sesi. localStorage hanya dibaca di client; SSR pakai useState. */
@@ -77,9 +82,9 @@ export function useApi() {
     options: RequestOptions,
     allowRefresh: boolean,
   ): Promise<RawEnvelope<T>> {
-    const { method = 'GET', body, query, auth = true, retryOn401 = true } = options
+    const { method = 'GET', body, query, auth = true, retryOn401 = true, headers: extraHeaders } = options
 
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = { ...extraHeaders }
     if (auth && session.value?.access_token) {
       headers.Authorization = `Bearer ${session.value.access_token}`
       if (session.value.active_org_id) {
@@ -191,5 +196,35 @@ export function useApi() {
     clearStoredSession()
   }
 
-  return { apiFetch, apiFetchWithMeta, adoptSession, dropSession, tryRefresh }
+  /**
+   * Mengambil berkas biner (mis. label PDF) dengan header otorisasi + tenant.
+   * Berbeda dari apiFetch: TIDAK membuka envelope JSON — responsnya blob.
+   * Nama berkas diambil dari Content-Disposition bila ada.
+   */
+  async function apiFetchBlob(path: string): Promise<{ blob: Blob, filename: string | null }> {
+    const headers: Record<string, string> = {}
+    if (session.value?.access_token) {
+      headers.Authorization = `Bearer ${session.value.access_token}`
+      if (session.value.active_org_id) {
+        headers['X-Organization-Id'] = session.value.active_org_id
+      }
+    }
+    const res = await $fetch.raw(path, {
+      baseURL: config.public.apiBaseUrl as string,
+      method: 'GET',
+      headers,
+      responseType: 'blob',
+    })
+    const filename = parseFilename(res.headers.get('content-disposition'))
+    return { blob: res._data as Blob, filename }
+  }
+
+  return { apiFetch, apiFetchWithMeta, apiFetchBlob, adoptSession, dropSession, tryRefresh }
+}
+
+/** Mengambil nama berkas dari header Content-Disposition, bila ada. */
+function parseFilename(disposition: string | null): string | null {
+  if (!disposition) return null
+  const match = /filename="?([^";]+)"?/i.exec(disposition)
+  return match?.[1] ?? null
 }
