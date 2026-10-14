@@ -50,6 +50,73 @@ export type ShipmentStatus =
 /** Label rekomendasi kurir. */
 export type RateLabel = 'best_price' | 'fastest' | 'most_reliable' | 'best_value'
 
+/** Identitas ringkas kurir/layanan pada opsi tarif. */
+export interface RateParty {
+  code: string
+  name: string
+}
+
+/** Alasan dan keyakinan rekomendasi dari scoring engine. */
+export interface RateRecommendation {
+  reasons: string[]
+  confidence: number
+}
+
+/**
+ * Satu opsi tarif hasil GET /couriers/rates.
+ * `price` adalah total yang dibayar pelanggan; rinciannya ada di
+ * base_price/markup/cod_fee/insurance_fee.
+ */
+export interface RateOption {
+  courier: RateParty
+  service: RateParty
+  origin_zone: string
+  destination_zone: string
+  chargeable_weight: number
+  volumetric_weight?: number
+  price: number
+  base_price: number
+  markup: number
+  cod_fee: number
+  insurance_fee: number
+  eta_min_days: number
+  eta_max_days: number
+  reliability_score: number
+  supports_cod: boolean
+  supports_pickup: boolean
+  estimated_success_rate: number
+  score: number
+  labels: RateLabel[]
+  is_recommended: boolean
+  recommendation?: RateRecommendation
+}
+
+/** Peta label → "KODE_KURIR:KODE_LAYANAN" pemenang tiap kriteria. */
+export interface RateSummaryLabels {
+  cheapest: string
+  fastest: string
+  most_reliable: string
+  best_value: string
+}
+
+/** Hasil lengkap pencarian tarif (GET /rates, POST /rates/preview). */
+export interface RateQuote {
+  quote_id: string
+  origin_zone: string
+  destination_zone: string
+  chargeable_weight: number
+  options: RateOption[]
+  summary_labels: RateSummaryLabels
+}
+
+/** Hasil POST /couriers/recommend. */
+export interface RateRecommendResponse {
+  quote_id: string
+  chargeable_weight: number
+  summary_labels: RateSummaryLabels
+  recommended: RateOption | null
+}
+
 /** Provinsi (level 1). */
 export interface Province {
   id: string
