@@ -26,6 +26,7 @@ import (
 	"github.com/angkut/angkut/apps/internal/observability"
 	"github.com/angkut/angkut/apps/internal/version"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -71,14 +72,17 @@ func run() error {
 	}
 
 	// ── Redis ────────────────────────────────────────────────────────────
+	// rdb diteruskan ke perakit router sebagai cache tarif (opsional).
+	var rdb *redis.Client
 	if cfg.RDB.URL != "" {
-		rdb, err := openRedis(context.Background(), cfg)
+		client, err := openRedis(context.Background(), cfg)
 		if err != nil {
 			if cfg.IsProduction() {
 				return fmt.Errorf("membuka redis: %w", err)
 			}
 			log.Warn("redis tidak tersedia — lanjut tanpa cache (mode dev)", "error", err)
 		} else {
+			rdb = client
 			checkers = append(checkers, health.New("redis", redisPinger{rdb}))
 			closers = append(closers, func(context.Context) error { return rdb.Close() })
 			log.Info("redis terhubung")
@@ -86,7 +90,7 @@ func run() error {
 	}
 
 	// ── Router & server ──────────────────────────────────────────────────
-	router, err := buildRouter(cfg, log, pool, metrics, checkers)
+	router, err := buildRouter(cfg, log, pool, rdb, metrics, checkers)
 	if err != nil {
 		return err
 	}

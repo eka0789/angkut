@@ -11,6 +11,7 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/application/rates"
 	"github.com/angkut/angkut/apps/api/internal/domain/courier"
 	"github.com/angkut/angkut/apps/api/internal/domain/pricing"
+	"github.com/angkut/angkut/apps/api/internal/domain/scoring"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/cryptox"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/database"
 	"github.com/angkut/angkut/apps/api/internal/infrastructure/devmail"
@@ -23,6 +24,7 @@ import (
 	"github.com/angkut/angkut/apps/internal/config"
 	"github.com/angkut/angkut/apps/internal/observability"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 // buildRouter merakit seluruh lapisan aplikasi dan mengembalikan router siap
@@ -31,7 +33,7 @@ import (
 //
 // Bila pool nil (mis. mode dev tanpa database), router tetap dibangun tanpa
 // endpoint yang membutuhkan DB — health & metrics tetap hidup.
-func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metrics *observability.Registry, checkers []handler.Checker) (http.Handler, error) {
+func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *redis.Client, metrics *observability.Registry, checkers []handler.Checker) (http.Handler, error) {
 	deps := apihttp.Deps{
 		Config:   cfg,
 		Metrics:  metrics,
@@ -128,7 +130,24 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, metri
 		MarkupRateBps:            cfg.Pricing.MarkupRateBps,
 		PriceRoundStep:           cfg.Pricing.PriceRoundStep,
 	})
-	ratesSvc := rates.New(rates.Deps{Repo: courierRepo, Registry: courierRegistry, Engine: pricingEngine, Log: log})
+	scoringEngine := scoring.New(scoring.Config{
+		WeightPriceBps:       cfg.Scoring.WeightPriceBps,
+		WeightSpeedBps:       cfg.Scoring.WeightSpeedBps,
+		WeightReliabilityBps: cfg.Scoring.WeightReliabilityBps,
+		ReasonThresholdPct:   cfg.Scoring.ReasonThresholdPct,
+		HighReliabilityScore: cfg.Scoring.HighReliabilityScore,
+		ConfidenceBaseBps:    cfg.Scoring.ConfidenceBaseBps,
+		ConfidenceSpanBps:    cfg.Scoring.ConfidenceSpanBps,
+		MaxReasons:           cfg.Scoring.MaxReasons,
+	})
+	ratesSvc := rates.New(rates.Deps{
+		Repo:     courierRepo,
+		Registry: courierRegistry,
+		Engine:   pricingEngine,
+		Scorer:   scoringEngine,
+		Log:      log,
+		Redis:    rdb,
+	})
 	courierHandler := handler.NewCourierHandler(ratesSvc)
 
 	// Authenticator menjembatani middleware dengan application service tanpa
