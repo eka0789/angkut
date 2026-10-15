@@ -5,12 +5,12 @@ package handler
 import (
 	"net/http"
 
-	"github.com/angkut/angkut/apps/api/internal/application/auth"
-	"github.com/angkut/angkut/apps/api/internal/domain/user"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/dto"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/httpx"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
+	"github.com/angkut/angkut/apps/internal/application/auth"
+	"github.com/angkut/angkut/apps/internal/domain/user"
 )
 
 // AuthHandler menangani endpoint identitas.

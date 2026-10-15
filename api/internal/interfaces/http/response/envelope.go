@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/angkut/angkut/apps/api/internal/domain/shared"
+	"github.com/angkut/angkut/apps/internal/domain/shared"
 )
 
 // Envelope adalah bentuk respons tunggal.

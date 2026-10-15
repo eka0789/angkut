@@ -15,11 +15,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
-	"github.com/angkut/angkut/apps/api/internal/domain/organization"
-	"github.com/angkut/angkut/apps/api/internal/domain/shared"
-	"github.com/angkut/angkut/apps/api/internal/domain/user"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/database"
+	"github.com/angkut/angkut/apps/internal/application/organizationapp"
+	"github.com/angkut/angkut/apps/internal/domain/organization"
+	"github.com/angkut/angkut/apps/internal/domain/shared"
+	"github.com/angkut/angkut/apps/internal/domain/user"
+	"github.com/angkut/angkut/apps/internal/infrastructure/database"
 )
 
 // fixture menyiapkan dua organisasi terpisah, masing-masing dengan satu owner.

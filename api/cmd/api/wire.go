@@ -6,24 +6,26 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/angkut/angkut/apps/api/internal/application/auth"
-	"github.com/angkut/angkut/apps/api/internal/application/orderapp"
-	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
-	"github.com/angkut/angkut/apps/api/internal/application/rates"
-	"github.com/angkut/angkut/apps/api/internal/application/shipmentapp"
-	"github.com/angkut/angkut/apps/api/internal/domain/courier"
-	"github.com/angkut/angkut/apps/api/internal/domain/pricing"
-	"github.com/angkut/angkut/apps/api/internal/domain/scoring"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/cryptox"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/database"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/devmail"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/googleoauth"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/mockcourier"
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/tokenx"
 	apihttp "github.com/angkut/angkut/apps/api/internal/interfaces/http"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
+	"github.com/angkut/angkut/apps/internal/application/auth"
+	"github.com/angkut/angkut/apps/internal/application/orderapp"
+	"github.com/angkut/angkut/apps/internal/application/organizationapp"
+	"github.com/angkut/angkut/apps/internal/application/rates"
+	"github.com/angkut/angkut/apps/internal/application/shipmentapp"
+	"github.com/angkut/angkut/apps/internal/application/trackingapp"
+	"github.com/angkut/angkut/apps/internal/application/webhookapp"
 	"github.com/angkut/angkut/apps/internal/config"
+	"github.com/angkut/angkut/apps/internal/domain/courier"
+	"github.com/angkut/angkut/apps/internal/domain/pricing"
+	"github.com/angkut/angkut/apps/internal/domain/scoring"
+	"github.com/angkut/angkut/apps/internal/infrastructure/cryptox"
+	"github.com/angkut/angkut/apps/internal/infrastructure/database"
+	"github.com/angkut/angkut/apps/internal/infrastructure/devmail"
+	"github.com/angkut/angkut/apps/internal/infrastructure/googleoauth"
+	"github.com/angkut/angkut/apps/internal/infrastructure/mockcourier"
+	"github.com/angkut/angkut/apps/internal/infrastructure/tokenx"
 	"github.com/angkut/angkut/apps/internal/observability"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -179,6 +181,28 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	})
 	shipmentHandler := handler.NewShipmentHandler(shipmentSvc)
 
+	// ── Tracking & webhook ingress (TASK-030/031) ────────────────────────
+	trackingSvc := trackingapp.New(trackingapp.Deps{
+		Tx:     tx,
+		Stores: stores,
+		Events: stores.Tracking(),
+		Audit:  stores.Audit(),
+		Log:    log,
+	})
+	trackingHandler := handler.NewTrackingHandler(trackingSvc)
+
+	// Rahasia signature webhook disimpan terenkripsi; cipher dibutuhkan untuk
+	// membukanya saat memverifikasi — dan hanya di jalur itu.
+	webhookSvc := webhookapp.New(webhookapp.Deps{
+		Tx:      tx,
+		Stores:  stores,
+		Events:  stores.Webhooks(),
+		Secrets: database.NewWebhookSecretRepo(stores.Querier(), cipher),
+		Audit:   stores.Audit(),
+		Log:     log,
+	})
+	webhookHandler := handler.NewWebhookHandler(webhookSvc)
+
 	// Authenticator menjembatani middleware dengan application service tanpa
 	// membuat paket middleware bergantung pada application.
 	authenticate := func(ctx context.Context, rawToken string) (*middleware.Identity, error) {
@@ -207,6 +231,8 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.StoreHandler = storeHandler
 	deps.OrderHandler = orderHandler
 	deps.ShipmentHandler = shipmentHandler
+	deps.TrackingHandler = trackingHandler
+	deps.WebhookHandler = webhookHandler
 
 	return apihttp.NewRouter(deps), nil
 }

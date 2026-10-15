@@ -4,11 +4,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/angkut/angkut/apps/api/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/dto"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/httpx"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
+	"github.com/angkut/angkut/apps/internal/application/organizationapp"
 )
 
 // OrganizationHandler menangani endpoint organisasi & keanggotaan.

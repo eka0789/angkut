@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/angkut/angkut/apps/api/internal/domain/shared"
+	"github.com/angkut/angkut/apps/internal/domain/shared"
 )
 
 func TestMapErrorStatuses(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/angkut/angkut/apps/api/internal/domain/address"
-	"github.com/angkut/angkut/apps/api/internal/domain/region"
-	"github.com/angkut/angkut/apps/api/internal/domain/shared"
+	"github.com/angkut/angkut/apps/internal/domain/address"
+	"github.com/angkut/angkut/apps/internal/domain/region"
+	"github.com/angkut/angkut/apps/internal/domain/shared"
 )
 
 // Smoke test: interface terpenuhi tanpa DB.

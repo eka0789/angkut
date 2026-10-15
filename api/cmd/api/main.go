@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/angkut/angkut/apps/api/internal/infrastructure/health"
+	"github.com/angkut/angkut/apps/internal/infrastructure/health"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
 	"github.com/angkut/angkut/apps/internal/config"
 	"github.com/angkut/angkut/apps/internal/observability"

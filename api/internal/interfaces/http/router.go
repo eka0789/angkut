@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/angkut/angkut/apps/api/internal/domain/organization"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/internal/config"
+	"github.com/angkut/angkut/apps/internal/domain/organization"
 	"github.com/angkut/angkut/apps/internal/observability"
 )
 
@@ -34,6 +34,8 @@ type Deps struct {
 	StoreHandler        *handler.StoreHandler
 	OrderHandler        *handler.OrderHandler
 	ShipmentHandler     *handler.ShipmentHandler
+	TrackingHandler     *handler.TrackingHandler
+	WebhookHandler      *handler.WebhookHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -80,9 +82,11 @@ func NewRouter(d Deps) http.Handler {
 		registerStoreRoutes(api, d)
 		registerOrderRoutes(api, d)
 		registerShipmentRoutes(api, d)
+		registerTrackingRoutes(api, d)
+		registerWebhookRoutes(api, d)
 
-		// Modul berikutnya (tracking, cod, ...) didaftarkan
-		// pada fase terkait — lihat dev-docs/ai/TASKS.md.
+		// Modul berikutnya (cod, analytics, ...) didaftarkan pada fase terkait —
+		// lihat dev-docs/ai/TASKS.md.
 	})
 
 	return r
@@ -365,6 +369,63 @@ func registerShipmentRoutes(api chi.Router, d Deps) {
 			})
 			write.Patch("/{id}", d.ShipmentHandler.Update)
 			write.Post("/{id}/cancel", d.ShipmentHandler.Cancel)
+		})
+	})
+}
+
+// registerTrackingRoutes mendaftarkan grup /tracking (auth + tenant + RBAC).
+// Pelacakan bersifat baca bagi semua role (tracking.view adalah izin baca),
+// sedangkan pencatatan event manual adalah aksi staf.
+func registerTrackingRoutes(api chi.Router, d Deps) {
+	api.Route("/tracking", func(tr chi.Router) {
+		if d.TrackingHandler == nil || d.Authenticate == nil {
+			return
+		}
+		tr.Use(middleware.Auth(d.Authenticate))
+		tr.Use(middleware.Tenant())
+
+		tr.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("tracking.view"))
+			read.Get("/{awb}", d.TrackingHandler.ByAWB)
+			read.Get("/events", d.TrackingHandler.List)
+		})
+
+		// Catatan: rute statis "/events" didaftarkan sebelum "/{awb}" pada
+		// RegisterRoutes handler agar tidak tertelan sebagai resi.
+		tr.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleStaff))
+			write.Post("/events", d.TrackingHandler.Append)
+		})
+	})
+}
+
+// registerWebhookRoutes mendaftarkan grup /webhooks.
+//
+// Endpoint INGEST bersifat PUBLIK: pemanggilnya kurir/store, bukan pengguna
+// ber-token. Keamanannya bergantung pada verifikasi HMAC di application layer,
+// ditambah rate limit per IP agar tidak menjadi jalur penyalahgunaan.
+// Daftar event webhook tetap privat (memuat payload pihak ketiga).
+func registerWebhookRoutes(api chi.Router, d Deps) {
+	api.Route("/webhooks", func(wh chi.Router) {
+		if d.WebhookHandler == nil {
+			return
+		}
+
+		wh.Group(func(pub chi.Router) {
+			if d.APILimit != nil {
+				pub.Use(middleware.RateLimit(d.APILimit, middleware.KeyByIP))
+			}
+			pub.Post("/{provider}", d.WebhookHandler.Ingest)
+		})
+
+		if d.Authenticate == nil {
+			return
+		}
+		wh.Group(func(read chi.Router) {
+			read.Use(middleware.Auth(d.Authenticate))
+			read.Use(middleware.Tenant())
+			read.Use(middleware.RequireRole(organization.RoleAdmin))
+			read.Get("/events", d.WebhookHandler.List)
 		})
 	})
 }
