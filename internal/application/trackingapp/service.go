@@ -19,15 +19,21 @@ import (
 	"github.com/angkut/angkut/apps/internal/domain/tracking"
 	"github.com/angkut/angkut/apps/internal/infrastructure/database"
 	"github.com/angkut/angkut/apps/internal/platform"
+	"github.com/angkut/angkut/apps/internal/realtime"
 )
 
 // Deps adalah dependensi service tracking.
 type Deps struct {
-	Tx        *database.TxManager
-	Stores    *database.Stores
-	Events    tracking.Repository
-	Audit     audit.Recorder
-	Log       *slog.Logger
+	Tx     *database.TxManager
+	Stores *database.Stores
+	Events tracking.Repository
+	Audit  audit.Recorder
+	Log    *slog.Logger
+
+	// Notifier menyiarkan peristiwa realtime (SSE/WS). Optional — bila nil
+	// dipakai no-op, karena publish adalah best-effort dan kebenaran data
+	// tetap di database.
+	Notifier realtime.Notifier
 }
 
 // Service adalah service aplikasi tracking.
@@ -37,6 +43,7 @@ type Service struct {
 	events tracking.Repository
 	audit  audit.Recorder
 	log    *slog.Logger
+	real   realtime.Notifier
 }
 
 // New membuat service tracking.
@@ -45,7 +52,11 @@ func New(d Deps) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Service{tx: d.Tx, stores: d.Stores, events: d.Events, audit: d.Audit, log: log}
+	notif := d.Notifier
+	if notif == nil {
+		notif = realtime.NopNotifier{}
+	}
+	return &Service{tx: d.Tx, stores: d.Stores, events: d.Events, audit: d.Audit, log: log, real: notif}
 }
 
 // AppendInput adalah permintaan mencatat satu event.
@@ -185,7 +196,41 @@ func (s *Service) Append(ctx context.Context, orgID, actorUserID, requestID stri
 	}
 
 	s.recordAudit(ctx, orgID, actorUserID, requestID, ev)
+	s.notify(ctx, orgID, res, ev)
 	return res, nil
+}
+
+// notify menyiarkan peristiwa tracking ke klien realtime (SSE/WS) via Redis
+// pub/sub — best-effort: kegagalan hanya dicatat, TIDAK membalikkan status
+// yang sudah tersimpan (monitoring) maupun memgagalkan permintaan (dan pesan
+// yang hilang dipulihkan klien lewat snapshot REST saat tersambung ulang).
+func (s *Service) notify(ctx context.Context, orgID string, res *AppendResult, ev *tracking.Event) {
+	if res == nil || res.Event == nil {
+		return
+	}
+	sh, err := s.stores.Shipments().GetByID(ctx, orgID, ev.ShipmentID)
+	if err != nil {
+		s.log.Debug("realtime: shipment tidak dapat dibaca untuk notifikasi",
+			"shipment_id", ev.ShipmentID, "error", err)
+		return
+	}
+	payload := map[string]any{
+		"awb":    sh.AWB,
+		"status": string(res.ShipmentStatus),
+		"event": map[string]any{
+			"status":       string(ev.Status),
+			"description":  ev.Description,
+			"location":     ev.Location,
+			"occurred_at":  ev.OccurredAt.Format(time.RFC3339),
+			"raw_event_id": ev.RawEventID,
+		},
+	}
+	_ = s.real.Publish(realtime.Message{
+		Type:       realtime.TypeTrackingUpdated,
+		Topics:     []string{realtime.TrackChannel(sh.AWB), realtime.OrgShipmentsChannel(orgID)},
+		Payload:    payload,
+		OccurredAt: time.Now().UTC(),
+	})
 }
 
 // Timeline menyusun timeline sebuah pengiriman beserta penilaian keyakinan.

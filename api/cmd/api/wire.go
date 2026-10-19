@@ -27,6 +27,7 @@ import (
 	"github.com/angkut/angkut/apps/internal/infrastructure/mockcourier"
 	"github.com/angkut/angkut/apps/internal/infrastructure/tokenx"
 	"github.com/angkut/angkut/apps/internal/observability"
+	"github.com/angkut/angkut/apps/internal/realtime"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -188,8 +189,25 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 		Events: stores.Tracking(),
 		Audit:  stores.Audit(),
 		Log:    log,
+		// Notifier menerbitkan peristiwa ke Redis pub/sub (rdb nil → no-op yang
+		// aman). Publish best-effort: kebenaran data tetap di database.
+		Notifier: realtime.NewRedisPublisher(rdb),
 	})
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
+
+	// ── Realtime hub (TASK-034) ──────────────────────────────────────────
+	// Hub meneruskan pesan pub/sub ke koneksi SSE/WS lokal dalam proses ini.
+	// Konteks latar proses-disengaja: hub bergantung hidup bersama server;
+	// klien stream ditutup oleh ShutdownGrace (lihat main.go).
+	var hub *realtime.Hub
+	if rdb != nil {
+		hub = realtime.NewHub(context.Background(), realtime.NewRedisHub(rdb), realtime.Patterns())
+		log.Info("realtime hub aktif (redis pub/sub)")
+	} else {
+		hub = realtime.NewHub(context.Background(), nil, nil)
+		log.Warn("redis kosong — realtime hanya snapshot awal (tanpa pembaruan hidup)")
+	}
+	streamHandler := handler.NewStreamHandler(trackingSvc, hub, log)
 
 	// Rahasia signature webhook disimpan terenkripsi; cipher dibutuhkan untuk
 	// membukanya saat memverifikasi — dan hanya di jalur itu.
@@ -233,6 +251,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.ShipmentHandler = shipmentHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler
+	deps.StreamHandler = streamHandler
 
 	return apihttp.NewRouter(deps), nil
 }

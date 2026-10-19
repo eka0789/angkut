@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/angkut/angkut/apps/internal/config"
 	"github.com/angkut/angkut/apps/internal/observability"
@@ -37,6 +38,29 @@ func main() {
 		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// openRedisOpt membuka Redis untuk kebutuhan realtime worker. Beda dari API:
+// kegagalan berarti publish realtime harus dilewati, bukan kegagalan startup
+// worker di dev.
+func openRedisOpt(ctx context.Context, url string) (*redis.Client, error) {
+	opts, err := redis.ParseURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("parse URL: %w", err)
+	}
+	opts.DialTimeout = 3 * time.Second
+	opts.ReadTimeout = 3 * time.Second
+	opts.WriteTimeout = 3 * time.Second
+	opts.PoolSize = 10
+
+	client := redis.NewClient(opts)
+	cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := client.Ping(cctx).Err(); err != nil {
+		_ = client.Close()
+		return nil, fmt.Errorf("ping: %w", err)
+	}
+	return client, nil
 }
 
 func run() error {
@@ -71,6 +95,22 @@ func run() error {
 		return errors.New("DATABASE_URL wajib di production")
 	}
 
+	// ── Redis (opsional; hanya untuk realtime publish) ───────────────────
+	var rdb redis.UniversalClient
+	if cfg.RDB.URL != "" {
+		client, rerr := openRedisOpt(context.Background(), cfg.RDB.URL)
+		if rerr != nil {
+			if cfg.IsProduction() {
+				return fmt.Errorf("membuka redis: %w", rerr)
+			}
+			log.Warn("redis tidak tersedia — realtime publish dilewati (mode dev)", "error", rerr)
+		} else {
+			rdb = client
+			defer client.Close()
+			log.Info("redis terhubung (realtime publish)")
+		}
+	}
+
 	// Konteks proses: dibatalkan saat sinyal berhenti, dipakai semua runner.
 	procCtx, procCancel := context.WithCancel(context.Background())
 	defer procCancel()
@@ -78,7 +118,7 @@ func run() error {
 	// ── Consumer & relay ────────────────────────────────────────────────
 	var runners []func(context.Context) error
 	if pool != nil {
-		r, err := buildRuntime(procCtx, cfg, log, pool)
+		r, err := buildRuntime(procCtx, cfg, log, pool, rdb)
 		if err != nil {
 			return err
 		}

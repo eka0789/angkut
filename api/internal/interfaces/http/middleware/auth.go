@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
 	"github.com/angkut/angkut/apps/internal/domain/organization"
 	"github.com/angkut/angkut/apps/internal/domain/shared"
-	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
 	"github.com/angkut/angkut/apps/internal/observability"
 )
 
@@ -213,4 +213,45 @@ func bearerToken(r *http.Request) string {
 		return ""
 	}
 	return strings.TrimSpace(header[len(prefix):])
+}
+
+// AuthQuery adalah varian Auth untuk streaming (SSE/WS).
+//
+// Alasannya ada: EventSource dan WebSocket BROWSER tidak bisa menempel header
+// Authorization, jadi token dibaca dari query (`token` atau `access_token`).
+// Ini titik lemah nyata terhadap kebocoran token (URL tercatat di proxy), yang
+// diterima dengan batasan berikut yang (1) hanya dipakai untuk endpoint
+// streaming berumur panjang, (2) access token TTL-nya pendek, dan (3) logger
+// akses HANYA mencatat Path — bukan query — sehingga token tidak masuk log.
+func AuthQuery(authenticate Authenticator) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw := bearerToken(r)
+			if raw == "" {
+				if q := r.URL.Query(); len(q) > 0 {
+					raw = strings.TrimSpace(q.Get("token"))
+					if raw == "" {
+						raw = strings.TrimSpace(q.Get("access_token"))
+					}
+				}
+			}
+			if raw == "" {
+				response.Fail(w, shared.ErrUnauthorized)
+				return
+			}
+			identity, err := authenticate(r.Context(), raw)
+			if err != nil {
+				response.Fail(w, err)
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), identity)))
+		})
+	}
+}
+
+// WithTestIdentity menyuntikkan Identity ke context untuk keperluan TEST
+// handler yang memakai identitas langsung (melewati godown middleware Auth).
+// Nama disengaja eksplisit "Test" agar tidak dipakai di jalur produksi.
+func WithTestIdentity(ctx context.Context, id *Identity) context.Context {
+	return withIdentity(ctx, id)
 }

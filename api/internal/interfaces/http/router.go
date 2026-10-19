@@ -36,6 +36,7 @@ type Deps struct {
 	ShipmentHandler     *handler.ShipmentHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
+	StreamHandler       *handler.StreamHandler
 }
 
 // NewRouter merakit router lengkap beserta middleware global.
@@ -72,6 +73,17 @@ func NewRouter(d Deps) http.Handler {
 		if d.APILimit != nil {
 			api.Use(middleware.RateLimit(d.APILimit, middleware.KeyByUserOrIP))
 		}
+
+		// ── Streaming WebSocket (/ws) — autentikasi via query token ──────
+		// EventSource/WS browser tidak bisa menempel header; lihat AuthQuery.
+		api.Group(func(ws chi.Router) {
+			if d.StreamHandler == nil || d.Authenticate == nil {
+				return
+			}
+			ws.Use(middleware.AuthQuery(d.Authenticate))
+			ws.Use(middleware.Tenant())
+			ws.Get("/ws", d.StreamHandler.OrgWS)
+		})
 
 		registerAuthRoutes(api, d)
 		registerOrganizationRoutes(api, d)
@@ -395,6 +407,14 @@ func registerTrackingRoutes(api chi.Router, d Deps) {
 		tr.Group(func(write chi.Router) {
 			write.Use(middleware.RequireRole(organization.RoleStaff))
 			write.Post("/events", d.TrackingHandler.Append)
+		})
+
+		// Stream SSE: autentikasi lewat query token (EventSource), bukan header.
+		tr.Group(func(stream chi.Router) {
+			stream.Use(middleware.AuthQuery(d.Authenticate))
+			stream.Use(middleware.Tenant())
+			stream.Use(middleware.RequirePermission("tracking.view"))
+			stream.Get("/{awb}/stream", d.StreamHandler.TrackSSE)
 		})
 	})
 }
