@@ -57,7 +57,8 @@ func (r *ShipmentRepo) Create(ctx context.Context, s *shipment.Shipment) error {
 	)
 	if err != nil {
 		switch {
-		case isUniqueViolationOn(err, "uq_shipment_awb"):
+		case isUniqueViolationOn(err, "uq_shipment_awb"),
+			isUniqueViolationOn(err, "uq_shipment_awb_global"):
 			return shipment.ErrAWBTaken
 		case isUniqueViolationOn(err, "uq_shipment_idem"):
 			// Pemanggil menangani ini sebagai "sudah ada" lewat GetByIdempotencyKey.
@@ -253,14 +254,20 @@ func (r *ShipmentRepo) UpdateLabel(ctx context.Context, orgID, id, labelURL stri
 	return nil
 }
 
-// NextAWBSequence mengembalikan nomor urut resi berikutnya per organisasi,
-// kode kurir, dan hari (YYYYMMDD) — bagian AWB yang unik per hari.
-func (r *ShipmentRepo) NextAWBSequence(ctx context.Context, orgID, courierCode, day string) (int64, error) {
+// NextAWBSequence mengembalikan nomor urut resi berikutnya untuk kode kurir
+// dan hari (YYYYMMDD) — bagian AWB yang unik per hari.
+//
+// Penghitungannya lintas organisasi (tanpa filter organization_id) karena
+// resi harus unik global (migrasi 0020) supaya pelacakan publik per-resi tidak
+// ambigu: tanpa itu, dua organisasi yang mengirim lewat kurir yang sama pada
+// hari yang sama akan berebut nomor yang sama. Yang dibaca hanya nilai
+// maksimum kolom resi — tidak ada baris pengiriman yang dikembalikan.
+func (r *ShipmentRepo) NextAWBSequence(ctx context.Context, courierCode, day string) (int64, error) {
 	prefix := shipment.AWBLookupPrefix(courierCode, day)
 	var maxAWB *string
 	err := r.q.QueryRow(ctx, `
 		SELECT max(awb) FROM shipments
-		 WHERE organization_id=$1 AND awb LIKE $2||'%'`, orgID, prefix).Scan(&maxAWB)
+		 WHERE awb LIKE $1||'%'`, prefix).Scan(&maxAWB)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return 0, err
 	}

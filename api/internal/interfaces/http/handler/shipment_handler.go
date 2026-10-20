@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/httpx"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
 	"github.com/angkut/angkut/apps/internal/application/shipmentapp"
 	"github.com/angkut/angkut/apps/internal/domain/shipment"
 	"github.com/angkut/angkut/apps/internal/infrastructure/label"
-	"github.com/go-chi/chi/v5"
 )
 
 // ShipmentService adalah antarmuka minimal service shipment untuk handler.
@@ -88,7 +89,8 @@ func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create menangani POST /api/v1/shipments.
-// Header Idempotency-Key bersifat wajib untuk mutasi ini (lihat router).
+// Header Idempotency-Key wajib (dipasang RequireIdempotency di router) sehingga
+// retry klien tidak menghasilkan pengiriman ganda.
 func (h *ShipmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	identity := middleware.IdentityFrom(r.Context())
 	if identity == nil {
@@ -241,8 +243,7 @@ func (h *ShipmentHandler) Label(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition",
-		fmt.Sprintf("inline; filename=\"label-%s.pdf\"", sh.AWB))
+	w.Header().Set("Content-Disposition", `inline; filename="label-`+sh.AWB+`.pdf"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(pdf); err != nil {
@@ -254,8 +255,9 @@ func (h *ShipmentHandler) Label(w http.ResponseWriter, r *http.Request) {
 // ShareLink menangani GET /api/v1/shipments/{id}/share-link.
 //
 // Tautan publik pelacakan dibangun dari WEB_URL + resi. Endpoint publik
-// pelacakan menyusul di Phase 4 (TASK-035); tautan tetap dilaporkan apa
-// adanya dengan masa berlaku sehingga FE tidak menyimpan logika kadaluarsa.
+// pelacakan ada di TASK-035 (/api/v1/public/track/{awb}); tautan tetap
+// dilaporkan apa adanya dengan masa berlaku sehingga FE tidak menyimpan
+// logika kadaluarsa.
 func (h *ShipmentHandler) ShareLink(w http.ResponseWriter, r *http.Request) {
 	identity := middleware.IdentityFrom(r.Context())
 	if identity == nil {
@@ -276,7 +278,7 @@ func (h *ShipmentHandler) ShareLink(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// warehouseLabel mengembalikan nama tampilan asal (sementara: alamat asal).
+// warehouseLabel mengembalikan nama tampilan asal (sementara: id gudang).
 func warehouseLabel(sh *shipment.Shipment) string {
 	if sh.WarehouseID != "" {
 		return "Gudang " + sh.WarehouseID[:min(8, len(sh.WarehouseID))]

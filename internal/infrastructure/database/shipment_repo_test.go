@@ -136,6 +136,60 @@ func TestShipmentRepoAWBUniquePerOrg(t *testing.T) {
 	}
 }
 
+// TestShipmentRepoAWBUniqueGlobal memastikan resi yang sama DITOLAK walaupun
+// datang dari organisasi berbeda — prasyarat pelacakan publik per-resi
+// (TASK-035): `GET /api/v1/public/track/{awb}` hanya menerima resi tanpa
+// konteks organisasi, jadi satu resi harus menunjuk tepat satu pengiriman.
+func TestShipmentRepoAWBUniqueGlobal(t *testing.T) {
+	pool, stores := orderTestDB(t)
+	orgID, code, svc := seedShipmentFixture(t, pool)
+	otherOrgID := seedSecondOrg(t, pool)
+	repo := stores.Shipments()
+	ctx := context.Background()
+
+	const awb = "TST260101000077"
+	if err := repo.Create(ctx, newShipment(orgID, code, svc, awb, "")); err != nil {
+		t.Fatalf("Create org pertama: %v", err)
+	}
+	err := repo.Create(ctx, newShipment(otherOrgID, code, svc, awb, ""))
+	if err == nil {
+		t.Fatal("AWB duplikat lintas organisasi harus ditolak")
+	}
+	if err != shipment.ErrAWBTaken {
+		t.Errorf("error = %v, ingin ErrAWBTaken", err)
+	}
+}
+
+// seedSecondOrg membuat organisasi kedua (dengan pemiliknya) lalu
+// membersihkannya. Mengembalikan id organisasi.
+func seedSecondOrg(t *testing.T, pool *pgxpool.Pool) string {
+	t.Helper()
+	ctx := context.Background()
+
+	var orgID, userID string
+	for _, target := range []*string{&orgID, &userID} {
+		if err := pool.QueryRow(ctx, `SELECT gen_random_uuid()::text`).Scan(target); err != nil {
+			t.Fatalf("gen id: %v", err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, email, name, password_hash, status)
+		VALUES ($1,$2,'Uji Ship 2','x','active')`, userID, "ship2-"+userID[:8]+"@angkut.test"); err != nil {
+		t.Fatalf("seed user kedua: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO organizations (id, name, slug, owner_user_id) VALUES ($1,$2,$3,$4)`,
+		orgID, "Org Uji Ship 2", "ship2-"+orgID[:8], userID); err != nil {
+		t.Fatalf("seed org kedua: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM shipments WHERE organization_id=$1`, orgID)
+		_, _ = pool.Exec(ctx, `DELETE FROM organizations WHERE id=$1`, orgID)
+		_, _ = pool.Exec(ctx, `DELETE FROM users WHERE id=$1`, userID)
+	})
+	return orgID
+}
+
 func TestShipmentRepoIdempotencyKeyBlocksDuplicate(t *testing.T) {
 	pool, stores := orderTestDB(t)
 	orgID, code, svc := seedShipmentFixture(t, pool)
@@ -233,7 +287,7 @@ func TestShipmentRepoNextAWBSequence(t *testing.T) {
 	ctx := context.Background()
 
 	day := "260101"
-	seq, err := repo.NextAWBSequence(ctx, orgID, code, day)
+	seq, err := repo.NextAWBSequence(ctx, code, day)
 	if err != nil {
 		t.Fatalf("NextAWBSequence: %v", err)
 	}
@@ -248,7 +302,7 @@ func TestShipmentRepoNextAWBSequence(t *testing.T) {
 	if err := repo.Create(ctx, sh); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	seq2, err := repo.NextAWBSequence(ctx, orgID, code, day)
+	seq2, err := repo.NextAWBSequence(ctx, code, day)
 	if err != nil {
 		t.Fatalf("NextAWBSequence kedua: %v", err)
 	}

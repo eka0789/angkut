@@ -211,7 +211,7 @@ func (s *Service) createWithAWB(ctx context.Context, sh *shipment.Shipment, cr *
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		lastErr = s.tx.InTx(ctx, func(q database.Querier) error {
 			tx := s.stores.WithTx(q)
-			seq, err := tx.Shipments().NextAWBSequence(ctx, sh.OrganizationID, cr.Code, day)
+			seq, err := tx.Shipments().NextAWBSequence(ctx, cr.Code, day)
 			if err != nil {
 				return err
 			}

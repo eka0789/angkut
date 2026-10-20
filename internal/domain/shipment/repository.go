@@ -16,8 +16,14 @@ type ListFilter struct {
 	Offset      int
 }
 
-// Repository menyimpan shipment tenant-scoped. Semua metode WAJIB memfilter
-// organization_id — tidak ada jalur yang mengembalikan baris organisasi lain.
+// Repository menyimpan shipment tenant-scoped. Semua metode baca WAJIB
+// memfilter organization_id — tidak ada jalur yang mengembalikan baris
+// organisasi lain.
+//
+// Satu-satunya pengecualian adalah NextAWBSequence: ia hanya membaca nilai
+// maksimum kolom resi (angka), tidak pernah mengembalikan baris pengiriman,
+// dan sengaja lintas organisasi agar dua organisasi tidak menerbitkan resi
+// identik pada hari yang sama (resi unik global — migrasi 0020).
 type Repository interface {
 	// Create menyimpan shipment beserta item & paketnya dalam satu transaksi.
 	Create(ctx context.Context, s *Shipment) error
@@ -33,6 +39,7 @@ type Repository interface {
 	// UpdateLabel menyimpan URL label yang dihasilkan.
 	UpdateLabel(ctx context.Context, orgID, id, labelURL string) error
 	// NextAWBSequence mengembalikan nomor urut resi berikutnya untuk kode
-	// kurir & hari tertentu.
-	NextAWBSequence(ctx context.Context, orgID, courierCode string, day string) (int64, error)
+	// kurir & hari tertentu, dihitung lintas organisasi (lihat catatan pada
+	// Repository).
+	NextAWBSequence(ctx context.Context, courierCode string, day string) (int64, error)
 }
