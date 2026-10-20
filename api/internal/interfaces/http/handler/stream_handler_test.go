@@ -42,6 +42,10 @@ func (stubStreamService) TimelineByAWB(_ context.Context, _ string, awb string) 
 	return stubTimelineSSE(awb), stubShipmentSSE(), nil
 }
 
+func (stubStreamService) TimelinePublik(_ context.Context, awb string) (*tracking.Timeline, *shipment.Shipment, error) {
+	return stubStreamService{}.TimelineByAWB(context.Background(), "", awb)
+}
+
 func (stubStreamService) List(context.Context, string, tracking.Filter) ([]tracking.Event, int, error) {
 	return nil, 0, nil
 }
@@ -111,10 +115,13 @@ func TestSSESnapshotKontrak(t *testing.T) {
 	go func() { srv.ServeHTTP(rec, req); close(done) }()
 
 	buf := bufio.NewReader(rec.Body)
-	var dataLine string
+	var dataLine, eventLine string
 	start := time.Now()
 	for dataLine == "" && time.Since(start) < 2*time.Second {
 		line, err := buf.ReadString(10) // 10 = '\n'
+		if strings.HasPrefix(line, "event: ") {
+			eventLine = strings.TrimSuffix(strings.TrimPrefix(line, "event: "), "\n")
+		}
 		if line != "" && strings.HasPrefix(line, "data: ") {
 			dataLine = strings.TrimSuffix(strings.TrimPrefix(line, "data: "), "\n")
 			break
@@ -153,8 +160,10 @@ func TestSSESnapshotKontrak(t *testing.T) {
 	if _, ok := conf["level"]; !ok {
 		t.Error("confidence harus memuat level")
 	}
-	if !strings.Contains(rec.Body.String(), "event: tracking_update") {
-		t.Error("aliran tanpa event tracking_update")
+	// Event line dibaca dari aliran (buffer sudah terpakai oleh bufio), bukan
+	// dari rec.Body yang sudah habis — asersinya tetap sama ketatnya.
+	if eventLine != "tracking_update" {
+		t.Errorf("event SSE = %q, ingin tracking_update", eventLine)
 	}
 }
 

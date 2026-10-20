@@ -42,6 +42,11 @@ func (r *statusRec) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
+// Unwrap menyingkap pembungkus ke ResponseWriter asli supaya kemampuan
+// `http.Flusher`/`http.Hijacker` (SSE, WebSocket) tetap terlihat oleh handler
+// lewat rantai unwrap — pembungkus hanya menyalin metode ResponseWriter.
+func (r *statusRec) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"
