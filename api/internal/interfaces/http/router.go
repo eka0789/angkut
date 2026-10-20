@@ -21,6 +21,12 @@ type Deps struct {
 	Ready    []handler.Checker
 	APILimit middleware.Limiter
 
+	// PublicTrackLimit membatasi pencarian resi publik per IP. Sengaja
+	// terpisah dari APILimit: resi berurutan sehingga endpoint ini adalah
+	// oracle enumerasi, dan batasnya memang dibuat lebih ketat
+	// (RATE_LIMIT_PUBLIC_TRACK_PER_MIN, default 30/menit).
+	PublicTrackLimit middleware.Limiter
+
 	// Authenticate memvalidasi access token → identitas pemanggil.
 	Authenticate middleware.Authenticator
 
@@ -95,6 +101,7 @@ func NewRouter(d Deps) http.Handler {
 		registerOrderRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
+		registerPublicTrackingRoutes(api, d)
 		registerWebhookRoutes(api, d)
 
 		// Modul berikutnya (cod, analytics, ...) didaftarkan pada fase terkait —
@@ -393,28 +400,39 @@ func registerTrackingRoutes(api chi.Router, d Deps) {
 		if d.TrackingHandler == nil || d.Authenticate == nil {
 			return
 		}
-		tr.Use(middleware.Auth(d.Authenticate))
-		tr.Use(middleware.Tenant())
 
-		tr.Group(func(read chi.Router) {
-			read.Use(middleware.RequirePermission("tracking.view"))
-			read.Get("/{awb}", d.TrackingHandler.ByAWB)
-			read.Get("/events", d.TrackingHandler.List)
-		})
+		// Stream SSE didaftarkan TERPISAH dari grup ber-auth header.
+		// EventSource tidak bisa mengirim header Authorization, jadi stream
+		// memakai AuthQuery (header Bearer ATAU `token` di query). Bila stream
+		// digabung ke grup yang sudah memakai Auth(header), middleware Auth
+		// berjalan lebih dulu dan menolak koneksi dengan 401 sebelum AuthQuery
+		// sempat membaca token di query.
+		if d.StreamHandler != nil {
+			tr.Group(func(stream chi.Router) {
+				stream.Use(middleware.AuthQuery(d.Authenticate))
+				stream.Use(middleware.Tenant())
+				stream.Use(middleware.RequirePermission("tracking.view"))
+				stream.Get("/{awb}/stream", d.StreamHandler.TrackSSE)
+			})
+		}
 
-		// Catatan: rute statis "/events" didaftarkan sebelum "/{awb}" pada
-		// RegisterRoutes handler agar tidak tertelan sebagai resi.
-		tr.Group(func(write chi.Router) {
-			write.Use(middleware.RequireRole(organization.RoleStaff))
-			write.Post("/events", d.TrackingHandler.Append)
-		})
+		tr.Group(func(secured chi.Router) {
+			secured.Use(middleware.Auth(d.Authenticate))
+			secured.Use(middleware.Tenant())
 
-		// Stream SSE: autentikasi lewat query token (EventSource), bukan header.
-		tr.Group(func(stream chi.Router) {
-			stream.Use(middleware.AuthQuery(d.Authenticate))
-			stream.Use(middleware.Tenant())
-			stream.Use(middleware.RequirePermission("tracking.view"))
-			stream.Get("/{awb}/stream", d.StreamHandler.TrackSSE)
+			secured.Group(func(read chi.Router) {
+				read.Use(middleware.RequirePermission("tracking.view"))
+				read.Get("/{awb}", d.TrackingHandler.ByAWB)
+				read.Get("/events", d.TrackingHandler.List)
+			})
+
+			// Pencatatan event manual adalah aksi staf.
+			// Chi memprioritaskan rute statis di atas parameter, jadi "/events"
+			// tidak tertelan sebagai nilai resi.
+			secured.Group(func(write chi.Router) {
+				write.Use(middleware.RequireRole(organization.RoleStaff))
+				write.Post("/events", d.TrackingHandler.Append)
+			})
 		})
 	})
 }
@@ -447,5 +465,29 @@ func registerWebhookRoutes(api chi.Router, d Deps) {
 			read.Use(middleware.RequireRole(organization.RoleAdmin))
 			read.Get("/events", d.WebhookHandler.List)
 		})
+	})
+}
+
+// registerPublicTrackingRoutes mendaftarkan grup /public (tanpa auth).
+//
+// Halaman pelacakan publik dipakai penerima paket yang tidak punya akun —
+// tautan dibagikan lewat share-link pengiriman. Karena itu:
+//   - tidak ada auth/tenant; resi unik global sehingga lookup lintas organisasi
+//     aman selama payload dibatasi pada data yang tercetak di label;
+//   - rate limit per IP dipasang agar resi tidak bisa dienumerasi secara massal
+//     (AWB berurutan, jadi tanpa batas ini adalah oracle pencarian).
+func registerPublicTrackingRoutes(api chi.Router, d Deps) {
+	api.Route("/public", func(pub chi.Router) {
+		if d.TrackingHandler == nil {
+			return
+		}
+		limiter := d.PublicTrackLimit
+		if limiter == nil {
+			limiter = d.APILimit
+		}
+		if limiter != nil {
+			pub.Use(middleware.RateLimit(limiter, middleware.KeyByIP))
+		}
+		pub.Get("/track/{awb}", d.TrackingHandler.PublicByAWB)
 	})
 }

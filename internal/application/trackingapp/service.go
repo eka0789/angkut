@@ -132,8 +132,20 @@ func (s *Service) Append(ctx context.Context, orgID, actorUserID, requestID stri
 	err := s.tx.InTx(ctx, func(q database.Querier) error {
 		tx := s.stores.WithTx(q)
 
+		// Savepoint wajib: pelanggaran unique (kunci alami duplikat) membuat
+		// seluruh transaksi berstatus `aborted` di Postgres, sehingga COMMIT
+		// berikutnya ikut gagal walau handler sudah berniat menganggap ini
+		// sukses. Dengan savepoint, jalur duplikat cukup melakukan ROLLBACK TO
+		// lalu transaksi tetap bisa dilanjutkan/di-commit.
+		const sp = "sp_tracking_append"
+		if _, err := q.Exec(ctx, "SAVEPOINT "+sp); err != nil {
+			return err
+		}
 		if err := tx.Tracking().Append(ctx, ev); err != nil {
 			if tracking.IsDuplicate(err) {
+				if _, rerr := q.Exec(ctx, "ROLLBACK TO SAVEPOINT "+sp); rerr != nil {
+					return rerr
+				}
 				res.Duplicate = true
 				return nil
 			}
@@ -250,6 +262,22 @@ func (s *Service) Timeline(ctx context.Context, orgID, shipmentID string) (*trac
 // TimelineByAWB menyusun timeline dari nomor resi.
 func (s *Service) TimelineByAWB(ctx context.Context, orgID, awb string) (*tracking.Timeline, *shipment.Shipment, error) {
 	id, err := s.stores.Tracking().FindShipmentIDByAWB(ctx, orgID, strings.TrimSpace(awb))
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.Timeline(ctx, orgID, id)
+}
+
+// TimelinePublik menyusun timeline untuk endpoint pelacakan publik (TASK-035)
+// yang hanya menerima resi — pemanggilnya tidak berafiliasi pada organisasi
+// mana pun, jadi cakupan tenant tidak bisa dipakai sebagai kunci.
+//
+// Pencarian PEMILIK resi memang lintas organisasi (resi unik global — migrasi
+// 0020), tetapi setelah pemiliknya diketahui seluruh pembacaan detail kembali
+// lewat jalur tenant-scoped biasa memakai organisasi pemilik tadi. Tidak ada
+// query data yang berjalan tanpa filter organisasi.
+func (s *Service) TimelinePublik(ctx context.Context, awb string) (*tracking.Timeline, *shipment.Shipment, error) {
+	id, orgID, err := s.stores.Tracking().FindOwnerByAWBGlobal(ctx, awb)
 	if err != nil {
 		return nil, nil, err
 	}

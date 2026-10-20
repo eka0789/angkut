@@ -20,6 +20,9 @@ type TrackingService interface {
 	Append(ctx context.Context, orgID, actorUserID, requestID string, in trackingapp.AppendInput) (*trackingapp.AppendResult, error)
 	Timeline(ctx context.Context, orgID, shipmentID string) (*tracking.Timeline, *shipment.Shipment, error)
 	TimelineByAWB(ctx context.Context, orgID, awb string) (*tracking.Timeline, *shipment.Shipment, error)
+	// TimelinePublik mencari pemilik resi tanpa konteks organisasi — khusus
+	// endpoint publik yang hanya menerima nomor resi.
+	TimelinePublik(ctx context.Context, awb string) (*tracking.Timeline, *shipment.Shipment, error)
 	List(ctx context.Context, orgID string, f tracking.Filter) ([]tracking.Event, int, error)
 }
 
@@ -61,20 +64,7 @@ func (h *TrackingHandler) ByAWB(w http.ResponseWriter, r *http.Request) {
 		response.Fail(w, err)
 		return
 	}
-	response.OK(w, map[string]any{
-		"awb":              tl.AWB,
-		"status":           tl.Status,
-		"courier":          map[string]any{"code": sh.CourierCode, "service": sh.ServiceCode},
-		"events":           tl.Events,
-		"last_location":    tl.LastLocation,
-		"last_lat":         tl.LastLat,
-		"last_lng":         tl.LastLng,
-		"last_occurred_at": tl.OccurredAt,
-		"eta_min_days":     sh.EtaMinDays,
-		"eta_max_days":     sh.EtaMaxDays,
-		"confidence":       tracking.EvaluateConfidence(sh, nowUTC()),
-		"shipment_id":      sh.ID,
-	})
+	response.OK(w, trackingPayload(tl, sh))
 }
 
 // Append menangani POST /api/v1/tracking/events — pencatatan manual oleh staf.
@@ -144,6 +134,31 @@ func (h *TrackingHandler) List(w http.ResponseWriter, r *http.Request) {
 		"limit":  f.Limit,
 		"offset": f.Offset,
 	})
+}
+
+// PublicByAWB menangani GET /api/v1/public/track/{awb} — timeline publik tanpa
+// autentikasi (TASK-035). Pemanggil hanya punya nomor resi, jadi service yang
+// menemukan pemilik resi (resi unik global) lalu membaca detailnya dengan
+// cakupan organisasi pemilik itu.
+//
+// Isi payload dibatasi pada data yang memang tercetak pada label (status,
+// kurir, riwayat, lokasi, estimasi): tidak ada nama penerima, alamat, telepon,
+// maupun nilai barang — lihat trackingPayload di stream_handler.go.
+func (h *TrackingHandler) PublicByAWB(w http.ResponseWriter, r *http.Request) {
+	awb := strings.TrimSpace(chi.URLParam(r, "awb"))
+	if awb == "" {
+		response.Fail(w, ValidationError(map[string]string{
+			"awb": "Nomor resi wajib diisi.",
+		}))
+		return
+	}
+
+	tl, sh, err := h.svc.TimelinePublik(r.Context(), awb)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	response.OK(w, trackingPayload(tl, sh))
 }
 
 // ─── Request DTOs ─────────────────────────────────────────────────────────

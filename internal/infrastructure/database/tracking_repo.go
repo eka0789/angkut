@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -139,6 +140,28 @@ func (r *TrackingRepo) FindShipmentIDByAWB(ctx context.Context, orgID, awb strin
 		return "", tracking.ErrShipmentNotFound
 	}
 	return id, err
+}
+
+// FindOwnerByAWBGlobal mencari pemilik sebuah resi TANPA filter organisasi —
+// satu-satunya jalur baca shipments tanpa cakupan tenant, khusus untuk
+// pelacakan publik (TASK-035) yang hanya menerima resi tanpa konteks
+// organisasi.
+//
+// Ketentuan yang membuat jalur ini aman:
+//   - resi unik global (indeks uq_shipment_awb_global, migrasi 0020), jadi
+//     hasilnya selalu satu baris dan tidak mungkin memilih milik tenant lain;
+//   - yang dikembalikan hanya id + organisasi PEMILIK, lalu seluruh pembacaan
+//     detail kembali lewat jalur tenant-scoped biasa (lihat
+//     trackingapp.TimelinePublik) — tidak ada query data yang tanpa filter
+//     organisasi.
+func (r *TrackingRepo) FindOwnerByAWBGlobal(ctx context.Context, awb string) (shipmentID, organizationID string, err error) {
+	err = r.q.QueryRow(ctx,
+		`SELECT id::text, organization_id::text FROM shipments WHERE awb=$1`, strings.TrimSpace(awb)).
+		Scan(&shipmentID, &organizationID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", tracking.ErrShipmentNotFound
+	}
+	return shipmentID, organizationID, err
 }
 
 // ProcessedEventRepo mencatat event_id yang sudah diproses consumer.

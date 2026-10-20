@@ -40,10 +40,11 @@ import (
 // endpoint yang membutuhkan DB — health & metrics tetap hidup.
 func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *redis.Client, metrics *observability.Registry, checkers []handler.Checker) (http.Handler, error) {
 	deps := apihttp.Deps{
-		Config:   cfg,
-		Metrics:  metrics,
-		Ready:    checkers,
-		APILimit: middleware.NewMemoryLimiter(cfg.Rate.APIPerMin),
+		Config:           cfg,
+		Metrics:          metrics,
+		Ready:            checkers,
+		APILimit:         middleware.NewMemoryLimiter(cfg.Rate.APIPerMin),
+		PublicTrackLimit: middleware.NewMemoryLimiter(cfg.Rate.PublicTrackPerMin),
 	}
 
 	if pool == nil {
@@ -183,15 +184,21 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	shipmentHandler := handler.NewShipmentHandler(shipmentSvc)
 
 	// ── Tracking & webhook ingress (TASK-030/031) ────────────────────────
+	// Notifier menerbitkan peristiwa ke Redis pub/sub. Publish best-effort:
+	// kebenaran data tetap di database. Tanpa Redis, sengaja dipakai no-op
+	// eksplisit — bukan penerbit yang memuat klien nil — supaya tidak ada
+	// pemanggilan yang masuk ke dalam driver.
+	var notifier realtime.Notifier = realtime.NopNotifier{}
+	if rdb != nil {
+		notifier = realtime.NewRedisPublisher(rdb)
+	}
 	trackingSvc := trackingapp.New(trackingapp.Deps{
-		Tx:     tx,
-		Stores: stores,
-		Events: stores.Tracking(),
-		Audit:  stores.Audit(),
-		Log:    log,
-		// Notifier menerbitkan peristiwa ke Redis pub/sub (rdb nil → no-op yang
-		// aman). Publish best-effort: kebenaran data tetap di database.
-		Notifier: realtime.NewRedisPublisher(rdb),
+		Tx:       tx,
+		Stores:   stores,
+		Events:   stores.Tracking(),
+		Audit:    stores.Audit(),
+		Log:      log,
+		Notifier: notifier,
 	})
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 
