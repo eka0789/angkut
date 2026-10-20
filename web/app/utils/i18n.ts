@@ -390,6 +390,39 @@ export const id = {
   'dashboard.subtitle': 'Ringkasan operasional Anda hari ini.',
   'dashboard.emptyTitle': 'Operasional Anda akan tampil di sini',
   'dashboard.emptyBody': 'Hubungkan toko atau buat pengiriman pertama untuk melihat ringkasan, biaya logistik, dan status COD.',
+
+  // Pelacakan (TASK-030/034/035)
+  'tracking.title': 'Pelacakan',
+  'tracking.subtitle': 'Cari resi untuk melihat riwayat perjalanan paket.',
+  'tracking.awb': 'Nomor resi',
+  'tracking.awb_placeholder': 'Contoh: JNE261014000001',
+  'tracking.search': 'Lacak',
+  'tracking.public_title': 'Lacak Paket',
+  'tracking.public_subtitle': 'Masukkan nomor resi untuk melihat posisi dan riwayat paket.',
+  'tracking.not_found': 'Resi tidak ditemukan. Periksa kembali nomor resi Anda.',
+  'tracking.eta_range': 'Estimasi {min}–{max} hari',
+  'tracking.last_location': 'Posisi terakhir',
+  'tracking.no_events': 'Belum ada kejadian tercatat untuk resi ini.',
+  'tracking.live': 'Diperbarui langsung',
+  'tracking.manual_entry': 'Catat kejadian',
+  'tracking.recorded': 'Kejadian tercatat.',
+  'tracking.duplicate': 'Kejadian ini sudah tercatat sebelumnya.',
+  'tracking.field_status': 'Status kejadian',
+  'tracking.field_location': 'Lokasi',
+  'tracking.field_description': 'Keterangan',
+  'tracking.field_occurred_at': 'Waktu kejadian',
+  'tracking.save': 'Simpan kejadian',
+
+  // Status kejadian tracking (kanonik, sama dengan domain)
+  'tracking.status.created': 'Dibuat',
+  'tracking.status.pickup_requested': 'Penjemputan diminta',
+  'tracking.status.picked_up': 'Dijemput kurir',
+  'tracking.status.sorting': 'Sortir gudang',
+  'tracking.status.in_transit': 'Dalam perjalanan',
+  'tracking.status.out_for_delivery': 'Sedang diantar',
+  'tracking.status.delivered': 'Terkirim',
+  'tracking.status.failed': 'Gagal',
+  'tracking.status.returned': 'Dikembalikan',
 } as const
 
 export type MessageKey = keyof typeof id

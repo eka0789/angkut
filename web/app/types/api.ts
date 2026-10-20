@@ -443,3 +443,56 @@ export interface CourierService {
   created_at: string
   updated_at: string
 }
+
+// ─── Tracking (TASK-030/034/035) ──────────────────────────────────────────
+
+/** Kejadian pelacakan seperti dilaporkan kurir atau staf. */
+export type TrackingEventStatus =
+  | 'created'
+  | 'pickup_requested'
+  | 'picked_up'
+  | 'sorting'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'failed'
+  | 'returned'
+
+export interface TrackingEvent {
+  id: string
+  shipment_id: string
+  status: TrackingEventStatus
+  description?: string
+  location?: string
+  latitude?: number | null
+  longitude?: number | null
+  occurred_at: string
+  source: 'webhook' | 'manual' | 'system' | 'sync'
+  created_at: string
+}
+
+/** Penilaian apakah pengiriman masih sesuai jadwal. */
+export interface TrackingConfidence {
+  level: 'on_track' | 'delayed' | 'unknown'
+  message: string
+  reason?: string
+}
+
+/**
+ * Timeline satu resi — bentuk yang SAMA dipakai endpoint tenant, publik,
+ * snapshot SSE, dan pesan realtime. FE tidak perlu menangani dua bentuk.
+ */
+export interface TrackingTimeline {
+  awb: string
+  status: ShipmentLifecycleStatus
+  courier: ShipmentParty
+  events: TrackingEvent[]
+  last_location?: string
+  last_lat?: number | null
+  last_lng?: number | null
+  last_occurred_at?: string | null
+  eta_min_days: number
+  eta_max_days: number
+  confidence: TrackingConfidence
+  shipment_id: string
+}
