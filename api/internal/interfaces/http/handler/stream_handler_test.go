@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -69,6 +71,61 @@ func stubShipmentSSE() *shipment.Shipment {
 	}
 }
 
+// liveRecorder adalah pengganti httptest.ResponseRecorder untuk uji aliran.
+// Recorder bawaan menyimpan badan di bytes.Buffer TANPA kunci: menulis dari
+// goroutine sajian sementara goroutine uji membaca badan bersamaan adalah
+// data race (terdeteksi -race di CI). Sink ini mengunci tulisannya sendiri
+// dan memberi batas waktu baca supaya uji tetap gagal cepat, bukan menggantung.
+type liveRecorder struct {
+	hdr    http.Header
+	stop   time.Time
+	mu     sync.Mutex
+	buf    bytes.Buffer
+	status int
+}
+
+func (l *liveRecorder) Header() http.Header { return l.hdr }
+
+func (l *liveRecorder) WriteHeader(code int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.status == 0 {
+		l.status = code
+	}
+}
+
+func (l *liveRecorder) Write(b []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.status == 0 {
+		l.status = http.StatusOK
+	}
+	return l.buf.Write(b)
+}
+
+// Flush dipenuhi agar flusherOf(w) di handler menemukan http.Flusher;
+// tulisan sudah langsung terlihat pembaca, jadi tidak ada yang ditahan.
+func (l *liveRecorder) Flush() {}
+
+// Read mengosongkan buffer yang terkunci; setelah lewat batas waktu uji,
+// mengembalikan EOF agar loop pembaca yang membatasi waktu tetap berakhir.
+func (l *liveRecorder) Read(p []byte) (int, error) {
+	for {
+		l.mu.Lock()
+		if l.buf.Len() > 0 {
+			n, err := l.buf.Read(p)
+			l.mu.Unlock()
+			return n, err
+		}
+		stop := l.stop
+		l.mu.Unlock()
+		if time.Now().After(stop) {
+			return 0, io.EOF
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // sseRouter menyusun router chi untuk endpoint stream dengan identitas uji.
 func sseRouter(h *handler.StreamHandler) *chi.Mux {
 	identity := &middleware.Identity{
@@ -108,13 +165,13 @@ func TestSSESnapshotKontrak(t *testing.T) {
 	h := handler.NewStreamHandler(stubStreamService{}, hub, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/stream/SSE-1", nil)
-	rec := httptest.NewRecorder()
+	rec := &liveRecorder{hdr: make(http.Header), stop: time.Now().Add(2 * time.Second)}
 
 	srv := sseRouter(h)
 	done := make(chan struct{})
 	go func() { srv.ServeHTTP(rec, req); close(done) }()
 
-	buf := bufio.NewReader(rec.Body)
+	buf := bufio.NewReader(rec)
 	var dataLine, eventLine string
 	start := time.Now()
 	for dataLine == "" && time.Since(start) < 2*time.Second {
