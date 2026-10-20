@@ -33,20 +33,24 @@ const (
 //
 // Mengembalikan daftar fungsi "run" agar main hanya mengurus siklus hidup
 // (start/stop), bukan detail wiring.
-func buildRuntime(ctx context.Context, cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb redis.UniversalClient) ([]func(context.Context) error, error) {
+func buildRuntime(ctx context.Context, cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *redis.Client) ([]func(context.Context) error, error) {
 	stores := database.NewStores(pool)
 	tx := database.NewTxManager(pool)
 
 	// Notifier realtime: peristiwa yang diproses worker (webhook → tracking)
-	// ikut disiarkan ke klien SSE/WS lewat Redis pub/sub. Tanpa Redis, publish
-	// menjadi no-op — data tetap benar, hanya tanpa pembaruan hidup.
+	// ikut disiarkan ke klien SSE/WS lewat Redis pub/sub. Tanpa Redis dipakai
+	// no-op eksplisit — data tetap benar, hanya tanpa pembaruan hidup.
+	var notifier realtime.Notifier = realtime.NopNotifier{}
+	if rdb != nil {
+		notifier = realtime.NewRedisPublisher(rdb)
+	}
 	trackingSvc := trackingapp.New(trackingapp.Deps{
 		Tx:       tx,
 		Stores:   stores,
 		Events:   stores.Tracking(),
 		Audit:    stores.Audit(),
 		Log:      log,
-		Notifier: realtime.NewRedisPublisher(rdb),
+		Notifier: notifier,
 	})
 
 	// ── Consumer ─────────────────────────────────────────────────────────

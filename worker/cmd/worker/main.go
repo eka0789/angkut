@@ -96,7 +96,10 @@ func run() error {
 	}
 
 	// ── Redis (opsional; hanya untuk realtime publish) ───────────────────
-	var rdb redis.UniversalClient
+	// Bertipe konkret *redis.Client (bukan interface) supaya "tidak ada Redis"
+	// benar-benar nil — konstruktor realtime menolak pointer nil, dan bila
+	// dibungkus interface nilai nil-nya jadi palsu.
+	var rdb *redis.Client
 	if cfg.RDB.URL != "" {
 		client, rerr := openRedisOpt(context.Background(), cfg.RDB.URL)
 		if rerr != nil {
