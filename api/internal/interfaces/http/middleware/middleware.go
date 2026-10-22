@@ -5,9 +5,10 @@ package middleware
 
 import (
 	"net/http"
+	"runtime/debug"
 
-	"github.com/angkut/angkut/apps/internal/domain/shared"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
+	"github.com/angkut/angkut/apps/internal/domain/shared"
 	"github.com/angkut/angkut/apps/internal/observability"
 	"github.com/angkut/angkut/apps/internal/platform"
 )
@@ -37,7 +38,11 @@ func Recover(next http.Handler) http.Handler {
 		defer func() {
 			if rec := recover(); rec != nil {
 				log := observability.WithContext(r.Context(), observability.From(r.Context()))
-				log.Error("panic tertangkap", "panic", rec, "path", r.URL.Path, "method", r.Method)
+				// Stack WAJIB ikut dicatat: pesan panic saja ("nil pointer
+				// dereference") tidak menunjuk baris mana yang gagal, sehingga
+				// penyebabnya mustahil ditemukan dari log.
+				log.Error("panic tertangkap", "panic", rec, "path", r.URL.Path, "method", r.Method,
+					"stack", string(debug.Stack()))
 				response.Fail(w, errInternalPanic)
 			}
 		}()

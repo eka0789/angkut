@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/httpx"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
@@ -22,6 +24,8 @@ type ShipmentService interface {
 	Create(ctx context.Context, orgID, actorUserID, requestID string, in shipmentapp.CreateInput) (*shipment.Shipment, error)
 	Get(ctx context.Context, orgID, id string) (*shipment.Shipment, error)
 	List(ctx context.Context, orgID string, f shipment.ListFilter) ([]shipment.Shipment, int, error)
+	// GetByIDs dipakai label massal; id milik organisasi lain dilewati.
+	GetByIDs(ctx context.Context, orgID string, ids []string) ([]shipment.Shipment, error)
 	Transition(ctx context.Context, orgID, actorUserID, requestID, id string, target shipment.Status, reason string) (*shipment.Shipment, error)
 	Cancel(ctx context.Context, orgID, actorUserID, requestID, id, reason string) (*shipment.Shipment, error)
 }
@@ -228,15 +232,7 @@ func (h *ShipmentHandler) Label(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := label.DefaultConfig()
-	cfg.Format = format
-	gen := label.New(cfg)
-
-	pdf, err := gen.Generate(label.Data{
-		Shipment:  sh,
-		Origin:    label.Party{Name: warehouseLabel(sh)},
-		PrintedAt: time.Now().UTC(),
-	})
+	pdf, err := generateLabelPDF(sh, format)
 	if err != nil {
 		response.Fail(w, fmt.Errorf("membuat label: %w", err))
 		return
@@ -252,8 +248,118 @@ func (h *ShipmentHandler) Label(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ShareLink menangani GET /api/v1/shipments/{id}/share-link.
+// generateLabelPDF membangun satu PDF label (dipakai label tunggal & massal).
+func generateLabelPDF(sh *shipment.Shipment, format string) ([]byte, error) {
+	cfg := label.DefaultConfig()
+	cfg.Format = format
+	gen := label.New(cfg)
+	return gen.Generate(label.Data{
+		Shipment:  sh,
+		Origin:    label.Party{Name: warehouseLabel(sh)},
+		PrintedAt: time.Now().UTC(),
+	})
+}
+
+// bulkLabelsRequest adalah body POST /api/v1/shipments/labels/bulk.
+type bulkLabelsRequest struct {
+	IDs    []string `json:"ids"`
+	Format string   `json:"format"`
+}
+
+// BulkLabels menangani POST /api/v1/shipments/labels/bulk { ids, format }.
 //
+// Mengembalikan ZIP berisi satu PDF per pengiriman (kontrak "bulk label
+// print"). Prinsip per baris berlaku juga di sini: label yang gagal dibuat
+// tidak membatalkan seluruh unduhan — kegagalannya dicatat ke berkas
+// gagal.txt di dalam ZIP, dan hanya id milik organisasi ini yang dicetak.
+func (h *ShipmentHandler) BulkLabels(w http.ResponseWriter, r *http.Request) {
+	identity := middleware.IdentityFrom(r.Context())
+	if identity == nil {
+		response.Fail(w, unauthorized())
+		return
+	}
+	req, ok := httpx.Decode[bulkLabelsRequest](w, r)
+	if !ok {
+		return
+	}
+	format := strings.TrimSpace(req.Format)
+	if format == "" || format == "pdf" {
+		format = "a4"
+	}
+	if format != "a4" && format != "thermal" {
+		response.Fail(w, ValidationError(map[string]string{
+			"format": "Format label harus a4 atau thermal.",
+		}))
+		return
+	}
+	if len(req.IDs) == 0 {
+		response.Fail(w, ValidationError(map[string]string{"ids": "Minimal satu id pengiriman."}))
+		return
+	}
+	if len(req.IDs) > 1000 {
+		response.Fail(w, ValidationError(map[string]string{
+			"ids": "Maksimal 1000 label per permintaan.",
+		}))
+		return
+	}
+	// Id bukan UUID tidak boleh sampai ke query: `ANY($2::uuid[])` akan gagal
+	// di Postgres (22P02) dan berujung 500. Tolak sebagai validasi.
+	for _, id := range req.IDs {
+		if _, err := uuid.Parse(strings.TrimSpace(id)); err != nil {
+			response.Fail(w, ValidationError(map[string]string{
+				"ids": "Daftar id memuat nilai yang bukan UUID.",
+			}))
+			return
+		}
+	}
+
+	shs, err := h.svc.GetByIDs(r.Context(), identity.OrganizationID, req.IDs)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	if len(shs) == 0 {
+		response.Fail(w, ValidationError(map[string]string{
+			"ids": "Tidak ada pengiriman milik organisasi ini pada daftar.",
+		}))
+		return
+	}
+
+	// Respons streaming: setelah header terkirim, kesalahan per label hanya
+	// bisa dicatat ke dalam ZIP (bukan sebagai respons error JSON).
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition",
+		`attachment; filename="labels-`+time.Now().UTC().Format("060102-150405")+`.zip"`)
+	w.Header().Set("Cache-Control", "no-store")
+	zw := zip.NewWriter(w)
+
+	var failed []string
+	for i := range shs {
+		pdf, perr := generateLabelPDF(&shs[i], format)
+		if perr != nil {
+			failed = append(failed, shs[i].AWB+": "+perr.Error())
+			continue
+		}
+		fw, cerr := zw.CreateHeader(&zip.FileHeader{
+			Name:   "label-" + shs[i].AWB + ".pdf",
+			Method: zip.Deflate,
+		})
+		if cerr != nil {
+			failed = append(failed, shs[i].AWB+": menulis ke zip gagal")
+			continue
+		}
+		if _, werr := fw.Write(pdf); werr != nil {
+			failed = append(failed, shs[i].AWB+": menulis ke zip gagal")
+		}
+	}
+	if len(failed) > 0 {
+		mf, _ := zw.Create("gagal.txt")
+		mf.Write([]byte(strings.Join(failed, "\n")))
+	}
+	_ = zw.Close()
+}
+
+// ShareLink menangani GET /api/v1/shipments/{id}/share-link.
 // Tautan publik pelacakan dibangun dari WEB_URL + resi. Endpoint publik
 // pelacakan ada di TASK-035 (/api/v1/public/track/{awb}); tautan tetap
 // dilaporkan apa adanya dengan masa berlaku sehingga FE tidak menyimpan
