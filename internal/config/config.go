@@ -30,6 +30,7 @@ type Config struct {
 	Rate    RateLimitConfig
 	Pricing PricingConfig
 	Scoring ScoringConfig
+	Bulk    BulkConfig
 }
 
 type APIConfig struct {
@@ -109,6 +110,39 @@ type RateLimitConfig struct {
 	AuthPerMin        int
 	APIPerMin         int
 	PublicTrackPerMin int
+	// BulkPerMin membatasi endpoint pengiriman massal PER ORGANISASI:
+	// kontrak mengizinkan 5 submit bulk/menit (api-contract, baris rate limit).
+	BulkPerMin int
+}
+
+// BulkConfig membatasi unggahan pengiriman massal (TASK-039). Semua angka
+// datang dari env dengan default bernama — tanpa literal di kode bisnis.
+type BulkConfig struct {
+	MaxRows      int     // maksimum baris per unggahan/job
+	MaxWeightKG  float64 // maksimum berat per baris
+	ChunkSize    int     // ukuran batch progres saat memproses baris
+	MaxUploadMiB int     // maksimum ukuran file CSV unggahan
+}
+
+// validate menolak parameter bulk yang tidak masuk akal sebelum server menyala.
+func (b BulkConfig) validate() error {
+	var problems []string
+	if b.MaxRows <= 0 {
+		problems = append(problems, "BULK_MAX_ROWS harus > 0")
+	}
+	if b.MaxWeightKG <= 0 {
+		problems = append(problems, "BULK_MAX_WEIGHT_KG harus > 0")
+	}
+	if b.ChunkSize <= 0 {
+		problems = append(problems, "BULK_CHUNK_SIZE harus > 0")
+	}
+	if b.MaxUploadMiB <= 0 {
+		problems = append(problems, "BULK_MAX_UPLOAD_MIB harus > 0")
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("%s", strings.Join(problems, "; "))
+	}
+	return nil
 }
 
 // PricingConfig memuat seluruh parameter pricing engine (TASK-023).
@@ -303,6 +337,13 @@ func Load() (*Config, error) {
 			AuthPerMin:        envInt("RATE_LIMIT_AUTH_PER_MIN", 10),
 			APIPerMin:         envInt("RATE_LIMIT_API_PER_MIN", 120),
 			PublicTrackPerMin: envInt("RATE_LIMIT_PUBLIC_TRACK_PER_MIN", 30),
+			BulkPerMin:        envInt("RATE_LIMIT_BULK_PER_MIN", 5),
+		},
+		Bulk: BulkConfig{
+			MaxRows:      envInt("BULK_MAX_ROWS", 2000),
+			MaxWeightKG:  envFloat("BULK_MAX_WEIGHT_KG", 100),
+			ChunkSize:    envInt("BULK_CHUNK_SIZE", 100),
+			MaxUploadMiB: envInt("BULK_MAX_UPLOAD_MIB", 4),
 		},
 		Pricing: PricingConfig{
 			VolumetricDivisorDefault: envInt("PRICING_VOLUMETRIC_DIVISOR", 6000),
@@ -370,6 +411,9 @@ func (c *Config) Validate() error {
 		problems = append(problems, err.Error())
 	}
 	if err := c.Scoring.validate(); err != nil {
+		problems = append(problems, err.Error())
+	}
+	if err := c.Bulk.validate(); err != nil {
 		problems = append(problems, err.Error())
 	}
 

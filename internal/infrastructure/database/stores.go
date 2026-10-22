@@ -73,6 +73,9 @@ func (s *Stores) Orders() *OrderRepo { return &OrderRepo{q: s.q} }
 // Shipments mengembalikan repository pengiriman tenant-scoped.
 func (s *Stores) Shipments() *ShipmentRepo { return &ShipmentRepo{q: s.q} }
 
+// Bulk mengembalikan repository job pengiriman massal (bulk) tenant-scoped.
+func (s *Stores) Bulk() *BulkRepo { return &BulkRepo{q: s.q} }
+
 // Tracking mengembalikan repository event pelacakan (append-only) tenant-scoped.
 func (s *Stores) Tracking() *TrackingRepo { return &TrackingRepo{q: s.q} }
 

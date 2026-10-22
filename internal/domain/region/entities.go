@@ -42,6 +42,16 @@ type PostalCode struct {
 	CreatedAt  string `json:"created_at"`  // RFC3339
 }
 
+// PostalResolution adalah hasil resolve satu kode pos ke rantai wilayah
+// penuh (kecamatan → kota → provinsi). Dipakai impor massal (bulk) yang hanya
+// menerima kolom kode pos, tanpa id wilayah.
+type PostalResolution struct {
+	PostalCode string `json:"postal_code"`
+	DistrictID string `json:"district_id"`
+	CityID     string `json:"city_id"`
+	ProvinceID string `json:"province_id"`
+}
+
 // ValidType melaporkan apakah tipe kota valid.
 func ValidCityType(t string) bool {
 	return t == "kota" || t == "kabupaten"

@@ -25,3 +25,6 @@ Thumbs.db
 # Log & data lokal
 *.log
 data/
+
+# Cluster Postgres sementara untuk uji migrasi lokal (dibuat ulang tiap uji).
+pgdata-*/

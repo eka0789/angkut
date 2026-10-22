@@ -145,3 +145,24 @@ func (r *RegionRepo) GetVillageByID(ctx context.Context, id string) (*region.Vil
 	}
 	return &v, nil
 }
+
+// ResolvePostalCode mengubah kode pos menjadi rantai wilayah penuh lewat
+// join postal_codes → districts → cities → provinces (satu query, tanpa
+// N+1). Dipakai impor massal yang hanya menyediakan kolom kode pos.
+func (r *RegionRepo) ResolvePostalCode(ctx context.Context, code string) (*region.PostalResolution, error) {
+	var res region.PostalResolution
+	err := r.q.QueryRow(ctx, `
+		SELECT pc.code, d.id, c.id, p.id
+		FROM postal_codes pc
+		JOIN districts d ON d.id = pc.district_id
+		JOIN cities    c ON c.id = d.city_id
+		JOIN provinces p ON p.id = c.province_id
+		WHERE pc.code = $1`, code).Scan(&res.PostalCode, &res.DistrictID, &res.CityID, &res.ProvinceID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, shared.NotFound("POSTAL_CODE_NOT_FOUND", "Kode pos tidak dikenal.")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
