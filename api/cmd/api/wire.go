@@ -10,6 +10,7 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/internal/application/auth"
+	"github.com/angkut/angkut/apps/internal/application/bulkapp"
 	"github.com/angkut/angkut/apps/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/internal/application/rates"
@@ -45,6 +46,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 		Ready:            checkers,
 		APILimit:         middleware.NewMemoryLimiter(cfg.Rate.APIPerMin),
 		PublicTrackLimit: middleware.NewMemoryLimiter(cfg.Rate.PublicTrackPerMin),
+		BulkLimit:        middleware.NewMemoryLimiter(cfg.Rate.BulkPerMin),
 	}
 
 	if pool == nil {
@@ -183,6 +185,26 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	})
 	shipmentHandler := handler.NewShipmentHandler(shipmentSvc)
 
+	// ── Pengiriman massal (TASK-039) ─────────────────────────────────────
+	// Prosesor per baris berjalan sebagai goroutine dalam proses API (lihat
+	// package bulkapp) — broker RabbitMQ tidak tersedia untuk worker di
+	// lingkungan dev, dan unit kerjanya sengaja tetap di service.
+	bulkSvc := bulkapp.New(bulkapp.Deps{
+		Tx:       tx,
+		Stores:   stores,
+		Shipment: shipmentSvc,
+		Couriers: courierRepo,
+		Regions:  stores.Regions(),
+		Options: bulkapp.Options{
+			MaxRows:     cfg.Bulk.MaxRows,
+			MaxWeightKG: cfg.Bulk.MaxWeightKG,
+			ChunkSize:   cfg.Bulk.ChunkSize,
+		},
+		Audit: stores.Audit(),
+		Log:   log,
+	})
+	bulkHandler := handler.NewBulkHandler(bulkSvc, cfg.Bulk.MaxUploadMiB)
+
 	// ── Tracking & webhook ingress (TASK-030/031) ────────────────────────
 	// Notifier menerbitkan peristiwa ke Redis pub/sub. Publish best-effort:
 	// kebenaran data tetap di database. Tanpa Redis, sengaja dipakai no-op
@@ -256,6 +278,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.StoreHandler = storeHandler
 	deps.OrderHandler = orderHandler
 	deps.ShipmentHandler = shipmentHandler
+	deps.BulkHandler = bulkHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler
 	deps.StreamHandler = streamHandler

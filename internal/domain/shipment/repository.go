@@ -28,6 +28,10 @@ type Repository interface {
 	// Create menyimpan shipment beserta item & paketnya dalam satu transaksi.
 	Create(ctx context.Context, s *Shipment) error
 	GetByID(ctx context.Context, orgID, id string) (*Shipment, error)
+	// GetByIDs mengambil beberapa shipment milik organisasi sekaligus
+	// (unduh label massal); id di luar organisasi dilewati — tidak error,
+	// agar satu id asing tidak membongkar seluruh permintaan.
+	GetByIDs(ctx context.Context, orgID string, ids []string) ([]Shipment, error)
 	// GetByAWB mencari lewat resi (pencarian parsial trigram).
 	GetByAWB(ctx context.Context, orgID, awb string) (*Shipment, error)
 	// GetByIdempotencyKey mengembalikan shipment yang sudah dibuat dengan key

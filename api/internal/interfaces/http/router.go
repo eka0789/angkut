@@ -27,6 +27,10 @@ type Deps struct {
 	// (RATE_LIMIT_PUBLIC_TRACK_PER_MIN, default 30/menit).
 	PublicTrackLimit middleware.Limiter
 
+	// BulkLimit membatasi endpoint pengiriman massal PER ORGANISASI
+	// (RATE_LIMIT_BULK_PER_MIN, default 5/menit — sesuai api-contract).
+	BulkLimit middleware.Limiter
+
 	// Authenticate memvalidasi access token → identitas pemanggil.
 	Authenticate middleware.Authenticator
 
@@ -40,6 +44,7 @@ type Deps struct {
 	StoreHandler        *handler.StoreHandler
 	OrderHandler        *handler.OrderHandler
 	ShipmentHandler     *handler.ShipmentHandler
+	BulkHandler         *handler.BulkHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
 	StreamHandler       *handler.StreamHandler
@@ -371,6 +376,11 @@ func registerShipmentRoutes(api chi.Router, d Deps) {
 		ships.Group(func(read chi.Router) {
 			read.Use(middleware.RequirePermission("shipment.view"))
 			read.Get("/", d.ShipmentHandler.List)
+			// Status job massal (rute statis "bulk" menang atas "/{id}"
+			// pada tree chi).
+			if d.BulkHandler != nil {
+				read.Get("/bulk/{job_id}", d.BulkHandler.Status)
+			}
 			read.Route("/{id}", func(one chi.Router) {
 				one.Get("/", d.ShipmentHandler.Get)
 				one.Get("/label", d.ShipmentHandler.Label)
@@ -388,6 +398,27 @@ func registerShipmentRoutes(api chi.Router, d Deps) {
 			})
 			write.Patch("/{id}", d.ShipmentHandler.Update)
 			write.Post("/{id}/cancel", d.ShipmentHandler.Cancel)
+
+			// Pengiriman massal (TASK-039): dibatasi 5 req/menit per org.
+			if d.BulkHandler != nil {
+				write.Group(func(bulk chi.Router) {
+					limiter := d.BulkLimit
+					if limiter == nil {
+						limiter = d.APILimit
+					}
+					if limiter != nil {
+						bulk.Use(middleware.RateLimit(limiter, middleware.KeyByIdentityOrg))
+					}
+					bulk.Post("/bulk/upload", d.BulkHandler.Upload)
+					bulk.Post("/bulk/validate", d.BulkHandler.Validate)
+					bulk.Group(func(sub chi.Router) {
+						sub.Use(middleware.RequireIdempotency)
+						sub.Post("/bulk", d.BulkHandler.Submit)
+					})
+				})
+				// Label massal: unduh ZIP satu PDF per pengiriman.
+				write.Post("/labels/bulk", d.ShipmentHandler.BulkLabels)
+			}
 		})
 	})
 }

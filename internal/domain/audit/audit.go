@@ -72,11 +72,14 @@ const (
 	ActionShipmentCanceled      = "shipment.cancelled"
 	ActionShipmentLabeled       = "shipment.label_generated"
 
+	// Pengiriman massal (TASK-039).
+	ActionBulkJobSubmitted = "shipment.bulk_submitted"
+
 	// Tracking & webhook (TASK-030/031).
-	ActionTrackingRecorded   = "tracking.recorded"
-	ActionWebhookReceived    = "webhook.received"
-	ActionWebhookRejected    = "webhook.rejected"
-	ActionWebhookProcessed   = "webhook.processed"
+	ActionTrackingRecorded = "tracking.recorded"
+	ActionWebhookReceived  = "webhook.received"
+	ActionWebhookRejected  = "webhook.rejected"
+	ActionWebhookProcessed = "webhook.processed"
 )
 
 // New membangun entri dengan aktor manusia.

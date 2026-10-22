@@ -382,6 +382,11 @@ func (s *Service) List(ctx context.Context, orgID string, f shipment.ListFilter)
 	return s.shipments.List(ctx, orgID, f)
 }
 
+// GetByIDs mengambil beberapa pengiriman milik organisasi (label massal).
+func (s *Service) GetByIDs(ctx context.Context, orgID string, ids []string) ([]shipment.Shipment, error) {
+	return s.shipments.GetByIDs(ctx, orgID, ids)
+}
+
 // BasePriceFor mengekspos harga dasar untuk pemanggil yang butuh (mis. label).
 func (s *Service) Engine() *pricing.Engine { return s.engine }
 

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/angkut/angkut/apps/internal/domain/shared"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/response"
+	"github.com/angkut/angkut/apps/internal/domain/shared"
 	"github.com/angkut/angkut/apps/internal/platform"
 )
 
@@ -84,6 +84,17 @@ func KeyByIP(r *http.Request) string { return "ip:" + clientIP(r) }
 func KeyByUserOrIP(r *http.Request) string {
 	if uid := userIDFromContext(r); uid != "" {
 		return "user:" + uid
+	}
+	return "ip:" + clientIP(r)
+}
+
+// KeyByIdentityOrg membatasi per organisasi pemanggil — dipakai endpoint
+// massal (bulk) yang menurut kontrak dibatasi 5 req/menit/organisasi.
+// Tanpa identitas di context (urutan middleware salah), jatuh ke IP supaya
+// permintaan tetap terbatas, bukan lolos tak beraturan.
+func KeyByIdentityOrg(r *http.Request) string {
+	if id := IdentityFrom(r.Context()); id != nil && id.OrganizationID != "" {
+		return "org:" + id.OrganizationID
 	}
 	return "ip:" + clientIP(r)
 }

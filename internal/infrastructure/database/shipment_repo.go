@@ -5,9 +5,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/angkut/angkut/apps/internal/domain/shared"
 	"github.com/angkut/angkut/apps/internal/domain/shipment"
 	"github.com/angkut/angkut/apps/internal/platform"
 )
@@ -105,6 +107,12 @@ func (r *ShipmentRepo) Create(ctx context.Context, s *shipment.Shipment) error {
 }
 
 func (r *ShipmentRepo) GetByID(ctx context.Context, orgID, id string) (*shipment.Shipment, error) {
+	// Pencacahan param rute (mis. GET /shipments/bulk/ yang tertangkap route
+	// /{id} dengan id="bulk") jangan sampai memicu error SQL 22P02 (500) —
+	// id yang bukan UUID berarti "tidak ditemukan".
+	if _, err := uuid.Parse(id); err != nil {
+		return nil, shared.NotFound("SHIPMENT_NOT_FOUND", "Pengiriman tidak ditemukan.")
+	}
 	row := r.q.QueryRow(ctx,
 		`SELECT `+shipmentCols+` FROM shipments WHERE organization_id=$1 AND id=$2`, orgID, id)
 	s, err := scanShipment(row)
@@ -115,6 +123,41 @@ func (r *ShipmentRepo) GetByID(ctx context.Context, orgID, id string) (*shipment
 		return nil, err
 	}
 	return s, nil
+}
+
+// GetByIDs mengambil beberapa shipment milik organisasi sekaligus (unduh
+// label massal). Id milik organisasi lain TIDAK ikut dikembalikan — guard
+// tenant tetap berlaku per baris, bukan per set.
+func (r *ShipmentRepo) GetByIDs(ctx context.Context, orgID string, ids []string) ([]shipment.Shipment, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.q.Query(ctx,
+		`SELECT `+shipmentCols+` FROM shipments WHERE organization_id=$1 AND id = ANY($2::uuid[]) ORDER BY created_at`,
+		orgID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []shipment.Shipment
+	for rows.Next() {
+		s, err := scanShipment(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Hydrate satu per satu: paket & item dibutuhkan payload QR/barcode label.
+	for i := range out {
+		if err := r.hydrate(ctx, &out[i]); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // GetByAWB mencari shipment lewat resi persis (dipakai pemanggil internal).
