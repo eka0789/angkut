@@ -162,12 +162,20 @@ onMounted(loadList)
           {{ t('shipment.subtitle') }}
         </p>
       </div>
-      <NuxtLink
-        to="/shipments/new"
-        class="btn-primary"
-      >
-        {{ t('shipment.add') }}
-      </NuxtLink>
+      <div class="head-actions">
+        <NuxtLink
+          to="/shipments/bulk"
+          class="btn-secondary"
+        >
+          {{ t('bulk.title') }}
+        </NuxtLink>
+        <NuxtLink
+          to="/shipments/new"
+          class="btn-primary"
+        >
+          {{ t('shipment.add') }}
+        </NuxtLink>
+      </div>
     </header>
 
     <div
@@ -446,6 +454,12 @@ th {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.head-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .btn-primary,

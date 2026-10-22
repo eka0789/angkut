@@ -496,3 +496,97 @@ export interface TrackingTimeline {
   confidence: TrackingConfidence
   shipment_id: string
 }
+
+// ─── Bulk shipping (TASK-039) ────────────────────────────────────────────
+
+/** Satu baris input pengiriman massal (dari CSV atau JSON). */
+export interface BulkRow {
+  recipient_name: string
+  recipient_phone: string
+  street: string
+  postal_code: string
+  weight_kg: number
+  length_cm?: number | null
+  width_cm?: number | null
+  height_cm?: number | null
+  cod_amount: number
+  declared_value: number
+  insurance: boolean
+  notes?: string
+}
+
+/** Satu masalah validasi pada sebuah baris. */
+export interface BulkIssue {
+  field: string
+  message: string
+  /** error = baris ditolak; warning = baris tetap jalan dengan catatan. */
+  severity?: 'error' | 'warning'
+}
+
+/** Hasil validasi satu baris. */
+export interface BulkRowReport {
+  row_no: number
+  status: 'valid' | 'warning' | 'error'
+  issues?: BulkIssue[]
+  row: BulkRow
+}
+
+/** Laporan validasi seluruh baris sebelum submit. */
+export interface BulkReport {
+  total: number
+  valid: number
+  warning: number
+  error: number
+  rows: BulkRowReport[]
+}
+
+/** Hasil unggahan CSV (POST /shipments/bulk/upload). */
+export interface BulkUploadResult {
+  upload_id: string
+  row_count: number
+  rows: BulkRow[]
+}
+
+/** Hasil submit (202 Accepted). */
+export interface BulkSubmitResult {
+  job_id: string
+  accepted: number
+  rejected: number
+  replayed: boolean
+}
+
+export type BulkJobState = 'pending' | 'processing' | 'completed' | 'failed'
+export type BulkJobRowState = 'valid' | 'invalid' | 'creating' | 'created' | 'failed'
+
+/** Status job massal + hasil per baris (GET /shipments/bulk/{job_id}). */
+export interface BulkJob {
+  id: string
+  status: BulkJobState
+  courier_code: string
+  service_code: string
+  origin_warehouse_id: string
+  total_rows: number
+  accepted_rows: number
+  rejected_rows: number
+  processed_rows: number
+  created_rows: number
+  failed_rows: number
+  error_summary?: string
+  created_at: string
+  started_at?: string
+  finished_at?: string
+  rows?: BulkJobRowResult[]
+}
+
+/** Hasil eksekusi satu baris dalam job. */
+export interface BulkJobRowResult {
+  job_id: string
+  row_no: number
+  row: BulkRow
+  status: BulkJobRowState
+  issues?: BulkIssue[]
+  shipment_id?: string
+  awb?: string
+  error?: string
+  created_at: string
+}

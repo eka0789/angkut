@@ -28,7 +28,8 @@ export class ApiRequestError extends Error {
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
-  body?: Record<string, unknown>
+  /** Body JSON, atau FormData untuk unggahan multipart (bulk CSV). */
+  body?: Record<string, unknown> | FormData
   query?: Record<string, string | number | boolean | undefined>
   /** Set false untuk endpoint auth publik (tanpa header Authorization). */
   auth?: boolean
@@ -197,12 +198,23 @@ export function useApi() {
   }
 
   /**
-   * Mengambil berkas biner (mis. label PDF) dengan header otorisasi + tenant.
-   * Berbeda dari apiFetch: TIDAK membuka envelope JSON — responsnya blob.
-   * Nama berkas diambil dari Content-Disposition bila ada.
+   * Mengambil berkas biner (mis. label PDF/ZIP) dengan header otorisasi +
+   * tenant. Berbeda dari apiFetch: TIDAK membuka envelope JSON — responsnya
+   * blob. Nama berkas diambil dari Content-Disposition bila ada.
+   *
+   * `options.method`/`body` dipakai unduhan ber-POST (label massal);
+   * default tetap GET agar pemanggil lama tidak berubah perilaku.
    */
-  async function apiFetchBlob(path: string): Promise<{ blob: Blob, filename: string | null }> {
-    const headers: Record<string, string> = {}
+  async function apiFetchBlob(
+    path: string,
+    options: {
+      method?: 'GET' | 'POST'
+      body?: Record<string, unknown> | FormData
+      headers?: Record<string, string>
+    } = {},
+  ): Promise<{ blob: Blob, filename: string | null }> {
+    const { method = 'GET', body, headers: extraHeaders } = options
+    const headers: Record<string, string> = { ...extraHeaders }
     if (session.value?.access_token) {
       headers.Authorization = `Bearer ${session.value.access_token}`
       if (session.value.active_org_id) {
@@ -211,7 +223,8 @@ export function useApi() {
     }
     const res = await $fetch.raw(path, {
       baseURL: config.public.apiBaseUrl as string,
-      method: 'GET',
+      method,
+      body,
       headers,
       responseType: 'blob',
     })
