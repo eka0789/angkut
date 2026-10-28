@@ -82,6 +82,19 @@ func (s *Stores) Tracking() *TrackingRepo { return &TrackingRepo{q: s.q} }
 // Pickups mengembalikan repository pickup request tenant-scoped.
 func (s *Stores) Pickups() *PickupRepo { return &PickupRepo{q: s.q} }
 
+// Notifications mengembalikan repository notifikasi per pengguna.
+func (s *Stores) Notifications() *NotificationRepo { return &NotificationRepo{q: s.q} }
+
+// NotificationTemplates mengembalikan repository template notifikasi per org.
+func (s *Stores) NotificationTemplates() *NotificationTemplateRepo {
+	return &NotificationTemplateRepo{q: s.q}
+}
+
+// NotificationPreferences mengembalikan repository preferensi notifikasi.
+func (s *Stores) NotificationPreferences() *NotificationPreferenceRepo {
+	return &NotificationPreferenceRepo{q: s.q}
+}
+
 // ProcessedEvents mengembalikan repository dedup event consumer.
 func (s *Stores) ProcessedEvents() *ProcessedEventRepo { return &ProcessedEventRepo{q: s.q} }
 
