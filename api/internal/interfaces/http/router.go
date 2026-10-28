@@ -46,6 +46,7 @@ type Deps struct {
 	ShipmentHandler     *handler.ShipmentHandler
 	BulkHandler         *handler.BulkHandler
 	PickupHandler       *handler.PickupHandler
+	InventoryHandler    *handler.InventoryHandler
 	NotificationHandler *handler.NotificationHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
@@ -106,6 +107,7 @@ func NewRouter(d Deps) http.Handler {
 		registerCourierRoutes(api, d)
 		registerStoreRoutes(api, d)
 		registerOrderRoutes(api, d)
+		registerInventoryRoutes(api, d)
 		registerNotificationRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
@@ -324,12 +326,77 @@ func registerStoreRoutes(api chi.Router, d Deps) {
 			read.Use(middleware.RequirePermission("warehouse.view"))
 			read.Get("/", d.StoreHandler.ListWarehouses)
 			read.Get("/{id}", d.StoreHandler.GetWarehouse)
+			// Stok per gudang (TASK-038) — baca member.
+			if d.InventoryHandler != nil {
+				d.InventoryHandler.RegisterWarehouseStock(read, nil)
+			}
 		})
 
 		wh.Group(func(write chi.Router) {
 			write.Use(middleware.RequireRole(organization.RoleAdmin))
 			write.Post("/", d.StoreHandler.CreateWarehouse)
 			write.Patch("/{id}", d.StoreHandler.UpdateWarehouse)
+		})
+
+		// Transfer stok antar gudang: warehouse+ (kontrak TASK-038).
+		if d.InventoryHandler != nil {
+			wh.Group(func(transfer chi.Router) {
+				transfer.Use(middleware.RequireRole(organization.RoleWarehouse))
+				d.InventoryHandler.RegisterWarehouseStock(nil, transfer)
+			})
+		}
+	})
+}
+
+// registerInventoryRoutes mendaftarkan grup /products dan /inventory
+// (auth + tenant + RBAC). Baca katalog & saldo: member; mutasi stok dan
+// produk: warehouse+ (kontrak modul 11); arsip produk: admin+.
+func registerInventoryRoutes(api chi.Router, d Deps) {
+	if d.InventoryHandler == nil || d.Authenticate == nil {
+		return
+	}
+	api.Route("/products", func(pr chi.Router) {
+		pr.Use(middleware.Auth(d.Authenticate))
+		pr.Use(middleware.Tenant())
+
+		// Baca: member (warehouse.view). HANYA GET — jangan mendaftar method
+		// tulis di grup ini (tanpa cek role, PATCH/DELETE jadi lolos RBAC).
+		pr.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("warehouse.view"))
+			read.Get("/", d.InventoryHandler.ListProducts)
+			read.Get("/{id}", d.InventoryHandler.GetProduct)
+		})
+
+		// Tulis: warehouse+.
+		pr.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleWarehouse))
+			write.Post("/", d.InventoryHandler.CreateProduct)
+			write.Patch("/{id}", d.InventoryHandler.UpdateProduct)
+			write.Post("/{id}/variants", d.InventoryHandler.AddVariant)
+			write.Patch("/{id}/variants/{vid}", d.InventoryHandler.UpdateVariant)
+		})
+
+		// Arsip (DELETE kontrak = admin+).
+		pr.Group(func(admin chi.Router) {
+			admin.Use(middleware.RequireRole(organization.RoleAdmin))
+			admin.Delete("/{id}", d.InventoryHandler.ArchiveProduct)
+		})
+	})
+
+	api.Route("/inventory", func(inv chi.Router) {
+		inv.Use(middleware.Auth(d.Authenticate))
+		inv.Use(middleware.Tenant())
+
+		inv.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("warehouse.view"))
+			read.Get("/", d.InventoryHandler.ListStock)
+			read.Get("/movements", d.InventoryHandler.Movements)
+			read.Get("/low-stock", d.InventoryHandler.LowStock)
+		})
+
+		inv.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleWarehouse))
+			write.Post("/adjust", d.InventoryHandler.Adjust)
 		})
 	})
 }

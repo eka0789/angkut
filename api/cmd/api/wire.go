@@ -11,6 +11,7 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/internal/application/auth"
 	"github.com/angkut/angkut/apps/internal/application/bulkapp"
+	"github.com/angkut/angkut/apps/internal/application/inventoryapp"
 	"github.com/angkut/angkut/apps/internal/application/notificationapp"
 	"github.com/angkut/angkut/apps/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/internal/application/organizationapp"
@@ -225,6 +226,15 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 		Log:    log,
 	})
 	notificationHandler := handler.NewNotificationHandler(notifSvc)
+
+	// ── Inventory & transfer stok (TASK-037/038) ─────────────────────────
+	invSvc := inventoryapp.New(inventoryapp.Deps{
+		Tx:     tx,
+		Stores: stores,
+		Audit:  stores.Audit(),
+		Log:    log,
+	})
+	inventoryHandler := handler.NewInventoryHandler(invSvc)
 	trackingSvc := trackingapp.New(trackingapp.Deps{
 		Tx:       tx,
 		Stores:   stores,
@@ -302,6 +312,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.ShipmentHandler = shipmentHandler
 	deps.BulkHandler = bulkHandler
 	deps.NotificationHandler = notificationHandler
+	deps.InventoryHandler = inventoryHandler
 	deps.PickupHandler = pickupHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler
