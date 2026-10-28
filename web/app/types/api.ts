@@ -635,3 +635,95 @@ export interface NotificationPreferenceView {
   enabled: boolean
   explicit: boolean
 }
+
+// ─── Inventory & Produk (TASK-037/038) ───────────────────────────────────
+
+export interface ProductVariant {
+  id: string
+  organization_id: string
+  product_id: string
+  sku: string
+  name?: string
+  weight_kg?: number | null
+  length_cm?: number | null
+  width_cm?: number | null
+  height_cm?: number | null
+  low_stock_threshold: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Product {
+  id: string
+  organization_id: string
+  name: string
+  category?: string
+  weight_kg?: number | null
+  length_cm?: number | null
+  width_cm?: number | null
+  height_cm?: number | null
+  is_active: boolean
+  variants?: ProductVariant[]
+  created_at: string
+  updated_at: string
+}
+
+export interface InventoryStock {
+  id: string
+  organization_id: string
+  variant_id: string
+  warehouse_id: string
+  qty_on_hand: number
+  qty_reserved: number
+  version: number
+  sku: string
+  product_name: string
+  variant_name?: string
+  low_stock_threshold: number
+}
+
+export type InventoryMovementType =
+  | 'adjust'
+  | 'transfer_out'
+  | 'transfer_in'
+  | 'reserve'
+  | 'release'
+
+export interface InventoryMovement {
+  id: string
+  organization_id: string
+  variant_id: string
+  warehouse_id: string
+  type: InventoryMovementType
+  qty_delta: number
+  qty_after: number
+  reason?: string
+  transfer_id?: string
+  created_by?: string
+  created_at: string
+}
+
+export interface LowStockRow {
+  variant_id: string
+  sku: string
+  product_name: string
+  warehouse_id: string
+  qty_available: number
+  low_stock_threshold: number
+}
+
+export interface StockTransferItem {
+  variant_id: string
+  qty: number
+}
+
+export interface StockTransfer {
+  id: string
+  organization_id: string
+  from_warehouse_id: string
+  to_warehouse_id: string
+  notes?: string
+  items: StockTransferItem[]
+  created_at: string
+}
