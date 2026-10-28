@@ -66,6 +66,10 @@ async function onLogout() {
         </div>
         <div class="shell-topbar-actions">
           <slot name="actions" />
+          <AppNotificationBell
+            v-if="isAuthenticated && session"
+            class="shell-bell"
+          />
           <div
             v-if="isAuthenticated && session"
             class="shell-user"
@@ -184,6 +188,12 @@ async function onLogout() {
 
 .shell-topbar-title {
   font-weight: 600;
+}
+
+.shell-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .shell-user {

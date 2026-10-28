@@ -590,3 +590,48 @@ export interface BulkJobRowResult {
   error?: string
   created_at: string
 }
+
+// ─── Notification (TASK-040) ─────────────────────────────────────────────
+
+export type NotificationChannel = 'inapp' | 'email'
+export type NotificationPriority = 'low' | 'normal' | 'high'
+export type NotificationEventKey =
+  | 'shipment.created'
+  | 'shipment.picked_up'
+  | 'shipment.in_transit'
+  | 'shipment.delivered'
+  | 'shipment.failed'
+  | 'shipment.returned'
+  | 'shipment.cancelled'
+  | 'bulk.job_completed'
+
+/** Notifikasi in-app milik satu pengguna. */
+export interface AppNotification {
+  id: string
+  organization_id: string
+  user_id: string
+  event_key: NotificationEventKey
+  channel: NotificationChannel
+  priority: NotificationPriority
+  title: string
+  body: string
+  data?: Record<string, unknown>
+  read_at?: string | null
+  created_at: string
+}
+
+/** Template notifikasi efektif (kustom organisasi atau bawaan platform). */
+export interface NotificationTemplateView {
+  key: NotificationEventKey
+  title_template: string
+  body_template: string
+  custom: boolean
+}
+
+/** Preferensi efektif satu baris (event × kanal). */
+export interface NotificationPreferenceView {
+  event_key: NotificationEventKey
+  channel: NotificationChannel
+  enabled: boolean
+  explicit: boolean
+}
