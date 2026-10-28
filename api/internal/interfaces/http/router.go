@@ -45,6 +45,7 @@ type Deps struct {
 	OrderHandler        *handler.OrderHandler
 	ShipmentHandler     *handler.ShipmentHandler
 	BulkHandler         *handler.BulkHandler
+	PickupHandler       *handler.PickupHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
 	StreamHandler       *handler.StreamHandler
@@ -106,6 +107,7 @@ func NewRouter(d Deps) http.Handler {
 		registerOrderRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
+		registerPickupRoutes(api, d)
 		registerPublicTrackingRoutes(api, d)
 		registerWebhookRoutes(api, d)
 
@@ -464,6 +466,33 @@ func registerTrackingRoutes(api chi.Router, d Deps) {
 				write.Use(middleware.RequireRole(organization.RoleStaff))
 				write.Post("/events", d.TrackingHandler.Append)
 			})
+		})
+	})
+}
+
+// registerPickupRoutes mendaftarkan grup /pickups (auth + tenant + RBAC).
+func registerPickupRoutes(api chi.Router, d Deps) {
+	api.Route("/pickups", func(pk chi.Router) {
+		if d.PickupHandler == nil || d.Authenticate == nil {
+			return
+		}
+		pk.Use(middleware.Auth(d.Authenticate))
+		pk.Use(middleware.Tenant())
+
+		pk.Group(func(read chi.Router) {
+			read.Use(middleware.RequirePermission("shipment.view"))
+			read.Get("/", d.PickupHandler.List)
+			read.Get("/{id}", d.PickupHandler.Get)
+		})
+
+		pk.Group(func(write chi.Router) {
+			// Kontrak modul: mutasi pickup = warehouse+ (owner/admin/finance/
+			// warehouse), sedangkan pembacaan cukup member.
+			write.Use(middleware.RequireRole(organization.RoleWarehouse))
+			write.Post("/", d.PickupHandler.Create)
+			write.Post("/{id}/schedule", d.PickupHandler.Schedule)
+			write.Post("/{id}/complete", d.PickupHandler.Complete)
+			write.Post("/{id}/cancel", d.PickupHandler.Cancel)
 		})
 	})
 }

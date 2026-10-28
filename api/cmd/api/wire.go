@@ -13,6 +13,7 @@ import (
 	"github.com/angkut/angkut/apps/internal/application/bulkapp"
 	"github.com/angkut/angkut/apps/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/internal/application/organizationapp"
+	"github.com/angkut/angkut/apps/internal/application/pickupapp"
 	"github.com/angkut/angkut/apps/internal/application/rates"
 	"github.com/angkut/angkut/apps/internal/application/shipmentapp"
 	"github.com/angkut/angkut/apps/internal/application/trackingapp"
@@ -250,6 +251,16 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	})
 	webhookHandler := handler.NewWebhookHandler(webhookSvc)
 
+	// ── Pickup request + scheduler (TASK-036) ─────────────────────────────
+	pickupSvc := pickupapp.New(pickupapp.Deps{
+		Tx:      tx,
+		Stores:  stores,
+		Pickups: stores.Pickups(),
+		Audit:   stores.Audit(),
+		Log:     log,
+	})
+	pickupHandler := handler.NewPickupHandler(pickupSvc)
+
 	// Authenticator menjembatani middleware dengan application service tanpa
 	// membuat paket middleware bergantung pada application.
 	authenticate := func(ctx context.Context, rawToken string) (*middleware.Identity, error) {
@@ -279,6 +290,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.OrderHandler = orderHandler
 	deps.ShipmentHandler = shipmentHandler
 	deps.BulkHandler = bulkHandler
+	deps.PickupHandler = pickupHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler
 	deps.StreamHandler = streamHandler

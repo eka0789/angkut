@@ -75,6 +75,12 @@ const (
 	// Pengiriman massal (TASK-039).
 	ActionBulkJobSubmitted = "shipment.bulk_submitted"
 
+	// Penjemputan (TASK-036).
+	ActionPickupCreated   = "pickup.created"
+	ActionPickupScheduled = "pickup.scheduled"
+	ActionPickupCompleted = "pickup.completed"
+	ActionPickupCancelled = "pickup.cancelled"
+
 	// Tracking & webhook (TASK-030/031).
 	ActionTrackingRecorded = "tracking.recorded"
 	ActionWebhookReceived  = "webhook.received"
