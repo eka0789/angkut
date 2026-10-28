@@ -75,6 +75,15 @@ const (
 	// Pengiriman massal (TASK-039).
 	ActionBulkJobSubmitted = "shipment.bulk_submitted"
 
+	// Inventory & warehouse (TASK-037/038).
+	ActionProductCreated        = "product.created"
+	ActionProductUpdated        = "product.updated"
+	ActionProductArchived       = "product.archived"
+	ActionProductVariantAdded   = "product.variant_added"
+	ActionProductVariantUpdated = "product.variant_updated"
+	ActionInventoryAdjusted     = "inventory.adjusted"
+	ActionStockTransferred      = "inventory.transferred"
+
 	// Penjemputan (TASK-036).
 	ActionPickupCreated   = "pickup.created"
 	ActionPickupScheduled = "pickup.scheduled"

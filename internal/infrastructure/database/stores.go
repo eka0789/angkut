@@ -82,6 +82,12 @@ func (s *Stores) Tracking() *TrackingRepo { return &TrackingRepo{q: s.q} }
 // Pickups mengembalikan repository pickup request tenant-scoped.
 func (s *Stores) Pickups() *PickupRepo { return &PickupRepo{q: s.q} }
 
+// Products mengembalikan repository katalog produk & varian.
+func (s *Stores) Products() *ProductRepo { return &ProductRepo{q: s.q} }
+
+// Inventory mengembalikan repository saldo stok, movement & transfer.
+func (s *Stores) Inventory() *InventoryRepo { return &InventoryRepo{q: s.q} }
+
 // Notifications mengembalikan repository notifikasi per pengguna.
 func (s *Stores) Notifications() *NotificationRepo { return &NotificationRepo{q: s.q} }
 
