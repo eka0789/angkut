@@ -11,6 +11,7 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/internal/application/auth"
 	"github.com/angkut/angkut/apps/internal/application/bulkapp"
+	"github.com/angkut/angkut/apps/internal/application/notificationapp"
 	"github.com/angkut/angkut/apps/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/internal/application/pickupapp"
@@ -215,6 +216,15 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	if rdb != nil {
 		notifier = realtime.NewRedisPublisher(rdb)
 	}
+	// ── Notifikasi (TASK-040) ────────────────────────────────────────────
+	// Fan-out in-app berjalan DI DALAM transaksi tracking (Notify dipakai
+	// trackingSvc); pengiriman email menyusul via outbox → worker.
+	notifSvc := notificationapp.New(notificationapp.Deps{
+		Tx:     tx,
+		Stores: stores,
+		Log:    log,
+	})
+	notificationHandler := handler.NewNotificationHandler(notifSvc)
 	trackingSvc := trackingapp.New(trackingapp.Deps{
 		Tx:       tx,
 		Stores:   stores,
@@ -222,6 +232,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 		Audit:    stores.Audit(),
 		Log:      log,
 		Notifier: notifier,
+		Notify:   notifSvc,
 	})
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 
@@ -290,6 +301,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.OrderHandler = orderHandler
 	deps.ShipmentHandler = shipmentHandler
 	deps.BulkHandler = bulkHandler
+	deps.NotificationHandler = notificationHandler
 	deps.PickupHandler = pickupHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler

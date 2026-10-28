@@ -14,6 +14,7 @@ import (
 	"github.com/angkut/angkut/apps/internal/infrastructure/broker"
 	"github.com/angkut/angkut/apps/internal/infrastructure/consumer"
 	"github.com/angkut/angkut/apps/internal/infrastructure/database"
+	"github.com/angkut/angkut/apps/internal/infrastructure/notificationemail"
 	"github.com/angkut/angkut/apps/internal/infrastructure/outboxrelay"
 	"github.com/angkut/angkut/apps/internal/realtime"
 	workerhandler "github.com/angkut/angkut/apps/worker/internal/handler"
@@ -36,6 +37,10 @@ const (
 func buildRuntime(ctx context.Context, cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *redis.Client) ([]func(context.Context) error, error) {
 	stores := database.NewStores(pool)
 	tx := database.NewTxManager(pool)
+
+	// Adapter email dev: menulis email notifikasi ke log (MAIL_ENABLED=false
+	// di dev). Adapter SMTP produksi menukar ini tanpa mengubah handler.
+	mailer := notificationemail.NewLogMailer(log, cfg.Mail.From)
 
 	// Notifier realtime: peristiwa yang diproses worker (webhook → tracking)
 	// ikut disiarkan ke klien SSE/WS lewat Redis pub/sub. Tanpa Redis dipakai
@@ -82,11 +87,12 @@ func buildRuntime(ctx context.Context, cfg *config.Config, log *slog.Logger, poo
 			Log:     log,
 		},
 		{
-			// Notifikasi menyusul (TASK-040); handler sementara mencatat ke log
-			// agar pesan tidak menumpuk di queue dan jejaknya tetap terlihat.
+			// Email notifikasi (TASK-040): isi pesan sudah dirender sisi API;
+			// worker hanya mengirim via adapter. Dev: log (MAIL_ENABLED=false
+			// tetap tercatat jujur di log worker).
 			Queue:   queueNotification,
 			Keys:    []string{"notification.send"},
-			Handler: (&workerhandler.ShipmentEventLogger{Log: log}).Handle,
+			Handler: (&workerhandler.NotificationEmailer{Sender: mailer, Log: log}).Handle,
 			Deduper: stores.ProcessedEvents(),
 			Log:     log,
 		},

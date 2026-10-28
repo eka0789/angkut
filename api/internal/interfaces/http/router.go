@@ -46,6 +46,7 @@ type Deps struct {
 	ShipmentHandler     *handler.ShipmentHandler
 	BulkHandler         *handler.BulkHandler
 	PickupHandler       *handler.PickupHandler
+	NotificationHandler *handler.NotificationHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
 	StreamHandler       *handler.StreamHandler
@@ -105,6 +106,7 @@ func NewRouter(d Deps) http.Handler {
 		registerCourierRoutes(api, d)
 		registerStoreRoutes(api, d)
 		registerOrderRoutes(api, d)
+		registerNotificationRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
 		registerPickupRoutes(api, d)
@@ -494,6 +496,44 @@ func registerPickupRoutes(api chi.Router, d Deps) {
 			write.Post("/{id}/complete", d.PickupHandler.Complete)
 			write.Post("/{id}/cancel", d.PickupHandler.Cancel)
 		})
+	})
+}
+
+// registerNotificationRoutes mendaftarkan grup /notifications dan
+// /notification-templates (auth + tenant). Pusat notifikasi adalah data
+// PRIBADI di dalam tenant: baca tanpa permission tambahan (difilter user_id),
+// template hanya admin+ (notification.manage).
+func registerNotificationRoutes(api chi.Router, d Deps) {
+	api.Route("/notifications", func(nc chi.Router) {
+		if d.NotificationHandler == nil || d.Authenticate == nil {
+			return
+		}
+		nc.Use(middleware.Auth(d.Authenticate))
+		nc.Use(middleware.Tenant())
+		d.NotificationHandler.RegisterRoutes(nc)
+	})
+
+	api.Route("/notification-templates", func(tc chi.Router) {
+		if d.NotificationHandler == nil || d.Authenticate == nil {
+			return
+		}
+		tc.Use(middleware.Auth(d.Authenticate))
+		tc.Use(middleware.Tenant())
+		tc.Group(func(admin chi.Router) {
+			admin.Use(middleware.RequirePermission("notification.manage"))
+			admin.Get("/", d.NotificationHandler.Templates)
+			admin.Put("/{key}", d.NotificationHandler.UpdateTemplate)
+		})
+	})
+
+	api.Route("/notification-preferences", func(pc chi.Router) {
+		if d.NotificationHandler == nil || d.Authenticate == nil {
+			return
+		}
+		pc.Use(middleware.Auth(d.Authenticate))
+		pc.Use(middleware.Tenant())
+		pc.Get("/", d.NotificationHandler.Preferences)
+		pc.Put("/", d.NotificationHandler.UpdatePreference)
 	})
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/angkut/angkut/apps/internal/domain/audit"
 	"github.com/angkut/angkut/apps/internal/domain/event"
+	"github.com/angkut/angkut/apps/internal/domain/notification"
 	"github.com/angkut/angkut/apps/internal/domain/shared"
 	"github.com/angkut/angkut/apps/internal/domain/shipment"
 	"github.com/angkut/angkut/apps/internal/domain/tracking"
@@ -21,6 +22,14 @@ import (
 	"github.com/angkut/angkut/apps/internal/platform"
 	"github.com/angkut/angkut/apps/internal/realtime"
 )
+
+// StatusNotifier adalah kontrak fan-out notifikasi perubahan status pengiriman
+// (diimplementasi notificationapp). Dipanggil DI DALAM transaksi append supaya
+// notifikasi lahir bersama kejadian yang menimbulkannya — optional, bila nil
+// tidak ada notifikasi (dipakai test & worker).
+type StatusNotifier interface {
+	DispatchShipmentStatus(ctx context.Context, q database.Querier, n notification.ShipmentNotice) error
+}
 
 // Deps adalah dependensi service tracking.
 type Deps struct {
@@ -34,6 +43,9 @@ type Deps struct {
 	// dipakai no-op, karena publish adalah best-effort dan kebenaran data
 	// tetap di database.
 	Notifier realtime.Notifier
+
+	// Notify adalah fan-out notifikasi in-app + email (TASK-040). Optional.
+	Notify StatusNotifier
 }
 
 // Service adalah service aplikasi tracking.
@@ -44,6 +56,8 @@ type Service struct {
 	audit  audit.Recorder
 	log    *slog.Logger
 	real   realtime.Notifier
+	// notifySvc dipanggil di dalam transaksi Append (bukan best-effort).
+	notifySvc StatusNotifier
 }
 
 // New membuat service tracking.
@@ -56,7 +70,7 @@ func New(d Deps) *Service {
 	if notif == nil {
 		notif = realtime.NopNotifier{}
 	}
-	return &Service{tx: d.Tx, stores: d.Stores, events: d.Events, audit: d.Audit, log: log, real: notif}
+	return &Service{tx: d.Tx, stores: d.Stores, events: d.Events, audit: d.Audit, log: log, real: notif, notifySvc: d.Notify}
 }
 
 // AppendInput adalah permintaan mencatat satu event.
@@ -180,6 +194,22 @@ func (s *Service) Append(ctx context.Context, orgID, actorUserID, requestID stri
 		}
 		res.ShipmentStatus = target
 		res.StatusChanged = true
+
+		// Notifikasi in-app lahir di transaksi yang sama (ADR-005: efek
+		// samping data ikut commit/rollback bersama kejadian). Kegagalan
+		// fan-out menggagalkan append — konsisten dengan outbox.
+		if s.notifySvc != nil {
+			if err := s.notifySvc.DispatchShipmentStatus(ctx, q, notification.ShipmentNotice{
+				OrganizationID: orgID,
+				ShipmentID:     sh.ID,
+				AWB:            sh.AWB,
+				Status:         string(target),
+				ActorUserID:    actorUserID,
+				OccurredAt:     occurred,
+			}); err != nil {
+				return err
+			}
+		}
 
 		// Outbox ditulis di transaksi yang sama (ADR-005).
 		return tx.Outbox().Publish(ctx, event.New(
