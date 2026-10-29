@@ -9,6 +9,8 @@ import (
 	apihttp "github.com/angkut/angkut/apps/api/internal/interfaces/http"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/handler"
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
+	"github.com/angkut/angkut/apps/internal/application/aiapp"
+	"github.com/angkut/angkut/apps/internal/application/analyticsapp"
 	"github.com/angkut/angkut/apps/internal/application/auth"
 	"github.com/angkut/angkut/apps/internal/application/bulkapp"
 	"github.com/angkut/angkut/apps/internal/application/codapp"
@@ -170,6 +172,11 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	returnsSvc := returnsapp.New(returnsapp.Deps{Tx: tx, Stores: stores, Audit: stores.Audit(), Log: log})
 	paySvc := paymentapp.New(paymentapp.Deps{Tx: tx, Stores: stores, Audit: stores.Audit(), Log: log})
 	moneyHandler := handler.NewMoneyHandler(codSvc, returnsSvc, stores.Ledger(), paySvc)
+
+	// ── AI core (heuristik) & analytics (TASK-047..055) ─────────────────
+	aiSvc := aiapp.New(aiapp.Deps{Stores: stores, Log: log})
+	anSvc := analyticsapp.New(analyticsapp.Deps{Stores: stores})
+	aiHandler := handler.NewAIHandler(aiSvc, anSvc)
 	orderSvc := orderapp.New(orderapp.Deps{
 		Tx:       tx,
 		Stores:   stores,
@@ -326,6 +333,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.NotificationHandler = notificationHandler
 	deps.InventoryHandler = inventoryHandler
 	deps.MoneyHandler = moneyHandler
+	deps.AIHandler = aiHandler
 	deps.PickupHandler = pickupHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler

@@ -48,6 +48,7 @@ type Deps struct {
 	PickupHandler       *handler.PickupHandler
 	InventoryHandler    *handler.InventoryHandler
 	MoneyHandler        *handler.MoneyHandler
+	AIHandler           *handler.AIHandler
 	NotificationHandler *handler.NotificationHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
@@ -110,6 +111,7 @@ func NewRouter(d Deps) http.Handler {
 		registerOrderRoutes(api, d)
 		registerInventoryRoutes(api, d)
 		registerMoneyRoutes(api, d)
+		registerAIRoutes(api, d)
 		registerNotificationRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
@@ -652,15 +654,6 @@ func registerMoneyRoutes(api chi.Router, d Deps) {
 		d.MoneyHandler.RegisterLedger(l)
 	})
 
-	api.Route("/analytics", func(a chi.Router) {
-		a.Use(middleware.Auth(d.Authenticate))
-		a.Use(middleware.Tenant())
-		a.Group(func(fin chi.Router) {
-			fin.Use(middleware.RequirePermission("cod.view"))
-			fin.Get("/financial", d.MoneyHandler.Financial)
-		})
-	})
-
 	api.Route("/returns", func(rt chi.Router) {
 		rt.Use(middleware.Auth(d.Authenticate))
 		rt.Use(middleware.Tenant())
@@ -699,6 +692,29 @@ func registerMoneyRoutes(api chi.Router, d Deps) {
 		rp.Group(func(admin chi.Router) {
 			admin.Use(middleware.RequirePermission("return.manage"))
 			d.MoneyHandler.RegisterPolicy(nil, admin)
+		})
+	})
+}
+
+// registerAIRoutes mendaftarkan grup /ai dan /analytics (auth+tenant, member).
+// Aksi mutasi AI tetap butuh konfirmasi eksplisit (TASK-050).
+func registerAIRoutes(api chi.Router, d Deps) {
+	if d.AIHandler == nil || d.Authenticate == nil {
+		return
+	}
+	api.Route("/ai", func(a chi.Router) {
+		a.Use(middleware.Auth(d.Authenticate))
+		a.Use(middleware.Tenant())
+		d.AIHandler.RegisterAI(a)
+	})
+	api.Route("/analytics", func(a chi.Router) {
+		a.Use(middleware.Auth(d.Authenticate))
+		a.Use(middleware.Tenant())
+		d.AIHandler.RegisterAnalytics(a)
+		a.Group(func(fin chi.Router) {
+			// Laporan keuangan: finance+ (cod.view).
+			fin.Use(middleware.RequirePermission("cod.view"))
+			fin.Get("/financial", d.MoneyHandler.Financial)
 		})
 	})
 }
