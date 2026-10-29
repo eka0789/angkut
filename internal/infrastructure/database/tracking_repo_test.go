@@ -309,6 +309,15 @@ func TestOutboxPublishAndClaimRoundTrip(t *testing.T) {
 	repo := stores.Outbox()
 	ctx := context.Background()
 
+	// DB uji dipakai bersama smoke (outbox notification.send dsb bisa menumpuk
+	// >100 baris pending dari organisasi lain). Uji ini mengklaim LIMIT 100 —
+	// baris lain yang lebih tua akan menggeser baris milik test keluar dari
+	// batch. Bersihkan dulu agar klaim deterministik (relay tidak jalan di
+	// mesin dev; aman untuk DB uji).
+	if _, err := pool.Exec(ctx, `DELETE FROM outbox_events`); err != nil {
+		t.Fatalf("bersihkan outbox: %v", err)
+	}
+
 	now := time.Now().UTC()
 	if err := repo.Publish(ctx, event.New(
 		uuid.NewString(), event.ShipmentDelivered, shipmentID, orgID, now,
