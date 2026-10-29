@@ -11,12 +11,15 @@ import (
 	"github.com/angkut/angkut/apps/api/internal/interfaces/http/middleware"
 	"github.com/angkut/angkut/apps/internal/application/auth"
 	"github.com/angkut/angkut/apps/internal/application/bulkapp"
+	"github.com/angkut/angkut/apps/internal/application/codapp"
 	"github.com/angkut/angkut/apps/internal/application/inventoryapp"
 	"github.com/angkut/angkut/apps/internal/application/notificationapp"
 	"github.com/angkut/angkut/apps/internal/application/orderapp"
 	"github.com/angkut/angkut/apps/internal/application/organizationapp"
+	"github.com/angkut/angkut/apps/internal/application/paymentapp"
 	"github.com/angkut/angkut/apps/internal/application/pickupapp"
 	"github.com/angkut/angkut/apps/internal/application/rates"
+	"github.com/angkut/angkut/apps/internal/application/returnsapp"
 	"github.com/angkut/angkut/apps/internal/application/shipmentapp"
 	"github.com/angkut/angkut/apps/internal/application/trackingapp"
 	"github.com/angkut/angkut/apps/internal/application/webhookapp"
@@ -163,12 +166,17 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 
 	// ── Order & fulfillment (TASK-026) ───────────────────────────────────
 	storeHandler := handler.NewStoreHandler(stores.StoresRepo(), stores.Warehouses())
+	codSvc := codapp.New(codapp.Deps{Tx: tx, Stores: stores, Audit: stores.Audit(), Log: log})
+	returnsSvc := returnsapp.New(returnsapp.Deps{Tx: tx, Stores: stores, Audit: stores.Audit(), Log: log})
+	paySvc := paymentapp.New(paymentapp.Deps{Tx: tx, Stores: stores, Audit: stores.Audit(), Log: log})
+	moneyHandler := handler.NewMoneyHandler(codSvc, returnsSvc, stores.Ledger(), paySvc)
 	orderSvc := orderapp.New(orderapp.Deps{
-		Tx:     tx,
-		Stores: stores,
-		Orders: stores.Orders(),
-		Audit:  stores.Audit(),
-		Log:    log,
+		Tx:       tx,
+		Stores:   stores,
+		Orders:   stores.Orders(),
+		Audit:    stores.Audit(),
+		Log:      log,
+		Invoices: paySvc,
 	})
 	orderHandler := handler.NewOrderHandler(orderSvc)
 
@@ -185,6 +193,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 		Engine:    pricingEngine,
 		Audit:     stores.Audit(),
 		Log:       log,
+		COD:       codSvc,
 	})
 	shipmentHandler := handler.NewShipmentHandler(shipmentSvc)
 
@@ -227,6 +236,8 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	})
 	notificationHandler := handler.NewNotificationHandler(notifSvc)
 
+	// ── Money: COD, ledger, returns, payment (TASK-041..046) ────────────
+
 	// ── Inventory & transfer stok (TASK-037/038) ─────────────────────────
 	invSvc := inventoryapp.New(inventoryapp.Deps{
 		Tx:     tx,
@@ -243,6 +254,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 		Log:      log,
 		Notifier: notifier,
 		Notify:   notifSvc,
+		COD:      codSvc,
 	})
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 
@@ -313,6 +325,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.BulkHandler = bulkHandler
 	deps.NotificationHandler = notificationHandler
 	deps.InventoryHandler = inventoryHandler
+	deps.MoneyHandler = moneyHandler
 	deps.PickupHandler = pickupHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler

@@ -47,6 +47,7 @@ type Deps struct {
 	BulkHandler         *handler.BulkHandler
 	PickupHandler       *handler.PickupHandler
 	InventoryHandler    *handler.InventoryHandler
+	MoneyHandler        *handler.MoneyHandler
 	NotificationHandler *handler.NotificationHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
@@ -108,6 +109,7 @@ func NewRouter(d Deps) http.Handler {
 		registerStoreRoutes(api, d)
 		registerOrderRoutes(api, d)
 		registerInventoryRoutes(api, d)
+		registerMoneyRoutes(api, d)
 		registerNotificationRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
@@ -601,6 +603,103 @@ func registerNotificationRoutes(api chi.Router, d Deps) {
 		pc.Use(middleware.Tenant())
 		pc.Get("/", d.NotificationHandler.Preferences)
 		pc.Put("/", d.NotificationHandler.UpdatePreference)
+	})
+}
+
+// registerMoneyRoutes mendaftarkan grup COD, ledger & returns.
+// RBAC per kontrak: COD & ledger finance+; retur member baca / staff+ buat /
+// admin+ keputusan & kebijakan / warehouse+ receive & inspect / finance+ refund.
+func registerMoneyRoutes(api chi.Router, d Deps) {
+	if d.MoneyHandler == nil || d.Authenticate == nil {
+		return
+	}
+
+	api.Route("/cod", func(c chi.Router) {
+		c.Use(middleware.Auth(d.Authenticate))
+		c.Use(middleware.Tenant())
+		c.Use(middleware.RequirePermission("cod.view"))
+		c.Group(func(write chi.Router) {
+			write.Use(middleware.RequirePermission("cod.manage"))
+			write.Post("/settlements", d.MoneyHandler.CreateSettlement)
+			write.Post("/settlements/{id}/mark-paid", d.MoneyHandler.MarkPaid)
+		})
+		d.MoneyHandler.RegisterCOD(c)
+	})
+
+	api.Route("/payments", func(p chi.Router) {
+		p.Use(middleware.Auth(d.Authenticate))
+		p.Use(middleware.Tenant())
+		p.Use(middleware.RequirePermission("cod.view"))
+		p.Group(func(write chi.Router) {
+			write.Use(middleware.RequirePermission("cod.settle"))
+			write.Use(middleware.RequireIdempotency)
+			write.Post("/", d.MoneyHandler.RecordPayment)
+		})
+		d.MoneyHandler.RegisterPayments(p)
+	})
+
+	api.Route("/invoices", func(iv chi.Router) {
+		iv.Use(middleware.Auth(d.Authenticate))
+		iv.Use(middleware.Tenant())
+		iv.Use(middleware.RequirePermission("cod.view"))
+		d.MoneyHandler.RegisterPayments(iv)
+	})
+
+	api.Route("/ledger", func(l chi.Router) {
+		l.Use(middleware.Auth(d.Authenticate))
+		l.Use(middleware.Tenant())
+		l.Use(middleware.RequirePermission("cod.view"))
+		d.MoneyHandler.RegisterLedger(l)
+	})
+
+	api.Route("/analytics", func(a chi.Router) {
+		a.Use(middleware.Auth(d.Authenticate))
+		a.Use(middleware.Tenant())
+		a.Group(func(fin chi.Router) {
+			fin.Use(middleware.RequirePermission("cod.view"))
+			fin.Get("/financial", d.MoneyHandler.Financial)
+		})
+	})
+
+	api.Route("/returns", func(rt chi.Router) {
+		rt.Use(middleware.Auth(d.Authenticate))
+		rt.Use(middleware.Tenant())
+
+		rt.Group(func(member chi.Router) {
+			d.MoneyHandler.RegisterReturns(member, nil, nil, nil, nil)
+		})
+
+		rt.Group(func(write chi.Router) {
+			write.Use(middleware.RequireRole(organization.RoleStaff))
+			d.MoneyHandler.RegisterReturns(nil, write, nil, nil, nil)
+		})
+
+		rt.Group(func(admin chi.Router) {
+			admin.Use(middleware.RequirePermission("return.manage"))
+			d.MoneyHandler.RegisterReturns(nil, nil, admin, nil, nil)
+		})
+
+		rt.Group(func(warehouse chi.Router) {
+			warehouse.Use(middleware.RequireRole(organization.RoleWarehouse))
+			d.MoneyHandler.RegisterReturns(nil, nil, nil, warehouse, nil)
+		})
+
+		rt.Group(func(finance chi.Router) {
+			finance.Use(middleware.RequirePermission("cod.manage"))
+			d.MoneyHandler.RegisterReturns(nil, nil, nil, nil, finance)
+		})
+	})
+
+	api.Route("/return-policies", func(rp chi.Router) {
+		rp.Use(middleware.Auth(d.Authenticate))
+		rp.Use(middleware.Tenant())
+		rp.Group(func(member chi.Router) {
+			d.MoneyHandler.RegisterPolicy(member, nil)
+		})
+		rp.Group(func(admin chi.Router) {
+			admin.Use(middleware.RequirePermission("return.manage"))
+			d.MoneyHandler.RegisterPolicy(nil, admin)
+		})
 	})
 }
 
