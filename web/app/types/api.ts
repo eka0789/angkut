@@ -727,3 +727,100 @@ export interface StockTransfer {
   items: StockTransferItem[]
   created_at: string
 }
+
+// ─── Money: COD, ledger, returns (TASK-041..046) ─────────────────────────
+
+export type CODStatus = 'pending' | 'collected' | 'settling' | 'settled' | 'failed'
+
+export interface CODTransaction {
+  id: string
+  organization_id: string
+  shipment_id: string
+  courier_code: string
+  amount: number
+  fee: number
+  status: CODStatus
+  collected_at?: string | null
+  created_at: string
+}
+
+export interface CODSummary {
+  total: number
+  pending: number
+  collected: number
+  settling: number
+  settled: number
+  expected_settlement: number
+  count: number
+}
+
+export interface CODSettlement {
+  id: string
+  courier_code: string
+  period_start: string
+  period_end: string
+  status: 'pending' | 'paid'
+  total_amount: number
+  total_fee: number
+  net_amount: number
+  reference?: string
+  paid_at?: string | null
+  items?: CODTransaction[]
+  created_at: string
+}
+
+export interface LedgerEntry {
+  id: string
+  organization_id: string
+  entry_date: string
+  account: string
+  debit: number
+  credit: number
+  ref_type: string
+  ref_id: string
+  memo?: string
+  created_at: string
+}
+
+export interface FinancialReport {
+  shipping_expense: number
+  courier_fees: number
+  insurance: number
+  refunds: number
+  cod_revenue: number
+  payment_received: number
+  net_logistics_cost: number
+}
+
+export type ReturnStatus =
+  | 'requested' | 'approved' | 'rejected'
+  | 'received' | 'inspected' | 'refunded'
+
+export interface ReturnItem {
+  id: string
+  order_item_id?: string
+  name_snapshot?: string
+  qty: number
+  condition: 'unknown' | 'good' | 'damaged' | 'lost'
+  restocked: boolean
+}
+
+export interface ProductReturn {
+  id: string
+  organization_id: string
+  order_id?: string
+  shipment_id?: string
+  type: 'refund' | 'exchange'
+  reason?: string
+  status: ReturnStatus
+  refund_amount: number
+  refund_method?: string
+  items?: ReturnItem[]
+  created_at: string
+}
+
+export interface ReturnPolicy {
+  window_days: number
+  auto_approve_limit: number
+  conditions?: string[]
+}

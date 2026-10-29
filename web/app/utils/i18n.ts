@@ -590,6 +590,26 @@ export const id = {
   'inv.more_items': 'item lainnya',
   'inv.forbidden': 'Operasi stok hanya untuk role warehouse ke atas.',
   'inv.back_to_stock': 'Kembali ke stok',
+
+  // Money (TASK-041..047)
+  'money.title': 'Keuangan',
+  'money.subtitle': 'COD, settlement, retur, dan biaya logistik bersih.',
+  'money.export_csv': 'Ekspor CSV',
+  'money.forbidden': 'Halaman keuangan hanya untuk role finance ke atas.',
+  'money.cod_expected': 'COD menunggu transfer',
+  'money.cod_settled': 'COD lunas',
+  'money.net_cost': 'Biaya logistik bersih',
+  'money.refunds': 'Refund',
+  'money.tab_cod': 'Transaksi COD',
+  'money.tab_settlements': 'Settlement',
+  'money.tab_returns': 'Retur',
+  'money.empty_cod': 'Belum ada transaksi COD.',
+  'money.empty_settlements': 'Belum ada settlement.',
+  'money.empty_returns': 'Belum ada retur.',
+  'money.settlement_paid': 'Settlement ditandai lunas.',
+  'money.mark_paid': 'Tandai lunas',
+  'money.refunded': 'Refund tercatat.',
+  'money.ledger_title': 'Buku besar (10 terakhir)',
 } as const
 
 export type MessageKey = keyof typeof id

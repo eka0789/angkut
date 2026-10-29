@@ -36,8 +36,7 @@ export const navSections: NavSection[] = [
   {
     title: 'nav.money',
     items: [
-      { label: 'nav.cod', to: '/cod', icon: '₨' },
-      { label: 'nav.settlements', to: '/cod/settlements', icon: '✓' },
+      { label: 'nav.money', to: '/finance', icon: '₨' },
       { label: 'nav.analytics', to: '/analytics', icon: '◔' },
     ],
   },
@@ -73,7 +72,7 @@ export const plannedModulePrefixes = [
   '/inventory',
   '/warehouses',
   '/customers',
-  '/cod',
+  '/finance',
   '/analytics',
   '/ai',
   '/returns',
