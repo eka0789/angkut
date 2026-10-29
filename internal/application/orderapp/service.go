@@ -23,15 +23,24 @@ type Deps struct {
 	Orders order.Repository
 	Audit  audit.Recorder
 	Log    *slog.Logger
+
+	// Invoices menerbitkan invoice untuk order prepaid (TASK-044). Optional.
+	Invoices InvoiceIssuer
+}
+
+// InvoiceIssuer adalah kontrak penerbitan invoice (diimplementasi paymentapp).
+type InvoiceIssuer interface {
+	IssueInvoice(ctx context.Context, q database.Querier, orgID, orderID string, amount int64) (string, error)
 }
 
 // Service adalah service aplikasi order.
 type Service struct {
-	tx     *database.TxManager
-	stores *database.Stores
-	orders order.Repository
-	audit  audit.Recorder
-	log    *slog.Logger
+	tx       *database.TxManager
+	stores   *database.Stores
+	orders   order.Repository
+	audit    audit.Recorder
+	log      *slog.Logger
+	invoices InvoiceIssuer
 }
 
 // New membuat service order.
@@ -40,7 +49,7 @@ func New(d Deps) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Service{tx: d.Tx, stores: d.Stores, orders: d.Orders, audit: d.Audit, log: log}
+	return &Service{tx: d.Tx, stores: d.Stores, orders: d.Orders, audit: d.Audit, log: log, invoices: d.Invoices}
 }
 
 // CreateItemInput adalah satu baris item dari pemanggil.
@@ -133,7 +142,17 @@ func (s *Service) createWithNumber(ctx context.Context, o *order.Order) error {
 				return err
 			}
 			o.OrderNumber = order.FormatOrderNumber(year, seq)
-			return tx.Orders().Create(ctx, o)
+			if err := tx.Orders().Create(ctx, o); err != nil {
+				return err
+			}
+			// Invoice lahir bersama order prepaid (transaksi yang sama);
+			// COD ditagih lewat modul COD terpisah.
+			if o.PaymentType == order.PaymentPrepaid && s.invoices != nil && o.TotalAmount > 0 {
+				if _, ierr := s.invoices.IssueInvoice(ctx, q, o.OrganizationID, o.ID, o.TotalAmount); ierr != nil {
+					return ierr
+				}
+			}
+			return nil
 		})
 		if lastErr == nil {
 			return nil

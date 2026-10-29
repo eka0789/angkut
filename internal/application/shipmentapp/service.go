@@ -30,6 +30,16 @@ type Deps struct {
 	Engine    *pricing.Engine
 	Audit     audit.Recorder
 	Log       *slog.Logger
+
+	// COD menerbitkan tagihan COD untuk pengiriman COD (TASK-041). Optional
+	// — dipanggil DI DALAM transaksi create agar tagihan lahir bersama
+	// pengiriman; nil = tanpa COD ledger (dipakai test).
+	COD CODIssuer
+}
+
+// CODIssuer adalah kontrak penerbitan tagihan COD (diimplementasi codapp).
+type CODIssuer interface {
+	IssueTransaction(ctx context.Context, q database.Querier, orgID, shipmentID, courierCode string, amount, fee int64) error
 }
 
 // Service adalah service aplikasi shipment.
@@ -43,6 +53,7 @@ type Service struct {
 	engine    *pricing.Engine
 	audit     audit.Recorder
 	log       *slog.Logger
+	cod       CODIssuer
 }
 
 // New membuat service shipment.
@@ -54,7 +65,7 @@ func New(d Deps) *Service {
 	return &Service{
 		tx: d.Tx, stores: d.Stores, shipments: d.Shipments,
 		couriers: d.Couriers, registry: d.Registry, orders: d.Orders, engine: d.Engine,
-		audit: d.Audit, log: log,
+		audit: d.Audit, log: log, cod: d.COD,
 	}
 }
 
@@ -223,7 +234,17 @@ func (s *Service) createWithAWB(ctx context.Context, sh *shipment.Shipment, cr *
 				Seq:         seq,
 			}.String()
 			s.attachPackage(sh)
-			return tx.Shipments().Create(ctx, sh)
+			if err := tx.Shipments().Create(ctx, sh); err != nil {
+				return err
+			}
+			// Tagihan COD lahir bersama pengiriman (transaksi yang sama).
+			if sh.IsCOD && sh.CODAmount > 0 && s.cod != nil {
+				if err := s.cod.IssueTransaction(ctx, q, sh.OrganizationID, sh.ID,
+					sh.CourierCode, sh.CODAmount, sh.CODFee); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 		if lastErr == nil {
 			return nil

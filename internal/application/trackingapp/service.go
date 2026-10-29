@@ -23,6 +23,15 @@ import (
 	"github.com/angkut/angkut/apps/internal/realtime"
 )
 
+// CODUpdater adalah kontrak pemindahan status tagihan COD (TASK-041):
+// delivered → collected; failed/cancelled → failed. Optional; dipanggil
+// DI DALAM transaksi tracking. Transaksi COD yang tidak ada = bukan kegagalan
+// (pengiriman non-COD) — ditangani implementasi.
+type CODUpdater interface {
+	CollectShipment(ctx context.Context, q database.Querier, orgID, shipmentID string, at time.Time) error
+	FailShipment(ctx context.Context, q database.Querier, orgID, shipmentID string) error
+}
+
 // StatusNotifier adalah kontrak fan-out notifikasi perubahan status pengiriman
 // (diimplementasi notificationapp). Dipanggil DI DALAM transaksi append supaya
 // notifikasi lahir bersama kejadian yang menimbulkannya — optional, bila nil
@@ -46,6 +55,9 @@ type Deps struct {
 
 	// Notify adalah fan-out notifikasi in-app + email (TASK-040). Optional.
 	Notify StatusNotifier
+
+	// COD memindahkan status tagihan COD mengikuti status pengiriman. Optional.
+	COD CODUpdater
 }
 
 // Service adalah service aplikasi tracking.
@@ -58,6 +70,7 @@ type Service struct {
 	real   realtime.Notifier
 	// notifySvc dipanggil di dalam transaksi Append (bukan best-effort).
 	notifySvc StatusNotifier
+	codSvc    CODUpdater
 }
 
 // New membuat service tracking.
@@ -70,7 +83,7 @@ func New(d Deps) *Service {
 	if notif == nil {
 		notif = realtime.NopNotifier{}
 	}
-	return &Service{tx: d.Tx, stores: d.Stores, events: d.Events, audit: d.Audit, log: log, real: notif, notifySvc: d.Notify}
+	return &Service{tx: d.Tx, stores: d.Stores, events: d.Events, audit: d.Audit, log: log, real: notif, notifySvc: d.Notify, codSvc: d.COD}
 }
 
 // AppendInput adalah permintaan mencatat satu event.
@@ -194,6 +207,20 @@ func (s *Service) Append(ctx context.Context, orgID, actorUserID, requestID stri
 		}
 		res.ShipmentStatus = target
 		res.StatusChanged = true
+
+		// Tagihan COD mengikuti status pengiriman (delivered → collected;
+		// failed/cancelled → failed). Transaksi COD tak ada = non-COD, aman.
+		if s.codSvc != nil {
+			if target == shipment.StatusDelivered {
+				if err := s.codSvc.CollectShipment(ctx, q, orgID, sh.ID, occurred); err != nil {
+					return err
+				}
+			} else if target == shipment.StatusFailed || target == shipment.StatusCancelled {
+				if err := s.codSvc.FailShipment(ctx, q, orgID, sh.ID); err != nil {
+					return err
+				}
+			}
+		}
 
 		// Notifikasi in-app lahir di transaksi yang sama (ADR-005: efek
 		// samping data ikut commit/rollback bersama kejadian). Kegagalan

@@ -75,6 +75,14 @@ const (
 	// Pengiriman massal (TASK-039).
 	ActionBulkJobSubmitted = "shipment.bulk_submitted"
 
+	// COD & keuangan (TASK-041..044).
+	ActionCODSettlementCreated = "cod.settlement_created"
+	ActionCODSettlementPaid    = "cod.settlement_paid"
+	ActionReturnCreated        = "return.created"
+	ActionReturnDecided        = "return.decided"
+	ActionReturnRefunded       = "return.refunded"
+	ActionPaymentReceived      = "payment.received"
+
 	// Inventory & warehouse (TASK-037/038).
 	ActionProductCreated        = "product.created"
 	ActionProductUpdated        = "product.updated"

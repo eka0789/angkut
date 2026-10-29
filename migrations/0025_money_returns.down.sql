@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS return_items;
+DROP TABLE IF EXISTS returns;
+DROP TABLE IF EXISTS return_policies;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS invoices;
+DROP FUNCTION IF EXISTS ledger_block_mutation();
+DROP TABLE IF EXISTS ledger_entries;
+DROP TABLE IF EXISTS cod_settlement_items;
+DROP TABLE IF EXISTS cod_settlements;
+DROP TABLE IF EXISTS cod_transactions;

@@ -88,6 +88,21 @@ func (s *Stores) Products() *ProductRepo { return &ProductRepo{q: s.q} }
 // Inventory mengembalikan repository saldo stok, movement & transfer.
 func (s *Stores) Inventory() *InventoryRepo { return &InventoryRepo{q: s.q} }
 
+// COD mengembalikan repository transaksi COD & settlement.
+func (s *Stores) COD() *CODRepo { return &CODRepo{q: s.q} }
+
+// Ledger mengembalikan repository buku besar append-only.
+func (s *Stores) Ledger() *LedgerRepo { return &LedgerRepo{q: s.q} }
+
+// Returns mengembalikan repository retur & kebijakan.
+func (s *Stores) Returns() *ReturnsRepo { return &ReturnsRepo{q: s.q} }
+
+// Payments mengembalikan repository pembayaran (provider mock).
+func (s *Stores) Payments() *PaymentRepo { return &PaymentRepo{q: s.q} }
+
+// Invoices mengembalikan repository invoice per order.
+func (s *Stores) Invoices() *InvoiceRepo { return &InvoiceRepo{q: s.q} }
+
 // Notifications mengembalikan repository notifikasi per pengguna.
 func (s *Stores) Notifications() *NotificationRepo { return &NotificationRepo{q: s.q} }
 
