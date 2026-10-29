@@ -49,6 +49,7 @@ type Deps struct {
 	InventoryHandler    *handler.InventoryHandler
 	MoneyHandler        *handler.MoneyHandler
 	AIHandler           *handler.AIHandler
+	PlatformHandler     *handler.PlatformHandler
 	NotificationHandler *handler.NotificationHandler
 	TrackingHandler     *handler.TrackingHandler
 	WebhookHandler      *handler.WebhookHandler
@@ -112,6 +113,7 @@ func NewRouter(d Deps) http.Handler {
 		registerInventoryRoutes(api, d)
 		registerMoneyRoutes(api, d)
 		registerAIRoutes(api, d)
+		registerPlatformRoutes(api, d)
 		registerNotificationRoutes(api, d)
 		registerShipmentRoutes(api, d)
 		registerTrackingRoutes(api, d)
@@ -716,6 +718,32 @@ func registerAIRoutes(api chi.Router, d Deps) {
 			fin.Use(middleware.RequirePermission("cod.view"))
 			fin.Get("/financial", d.MoneyHandler.Financial)
 		})
+	})
+}
+
+// registerPlatformRoutes mendaftarkan endpoint platform:
+// /api-keys (admin+), /search (member), /subscription/quota (member).
+func registerPlatformRoutes(api chi.Router, d Deps) {
+	if d.PlatformHandler == nil || d.Authenticate == nil {
+		return
+	}
+	api.Route("/api-keys", func(k chi.Router) {
+		k.Use(middleware.Auth(d.Authenticate))
+		k.Use(middleware.Tenant())
+		k.Group(func(admin chi.Router) {
+			admin.Use(middleware.RequirePermission("apikey.manage"))
+			d.PlatformHandler.RegisterKeys(admin)
+		})
+	})
+	api.Route("/search", func(s chi.Router) {
+		s.Use(middleware.Auth(d.Authenticate))
+		s.Use(middleware.Tenant())
+		d.PlatformHandler.RegisterSearch(s)
+	})
+	api.Route("/subscription", func(sb chi.Router) {
+		sb.Use(middleware.Auth(d.Authenticate))
+		sb.Use(middleware.Tenant())
+		d.PlatformHandler.RegisterQuota(sb)
 	})
 }
 

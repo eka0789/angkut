@@ -20,6 +20,7 @@ import (
 	"github.com/angkut/angkut/apps/internal/application/organizationapp"
 	"github.com/angkut/angkut/apps/internal/application/paymentapp"
 	"github.com/angkut/angkut/apps/internal/application/pickupapp"
+	"github.com/angkut/angkut/apps/internal/application/platformapp"
 	"github.com/angkut/angkut/apps/internal/application/rates"
 	"github.com/angkut/angkut/apps/internal/application/returnsapp"
 	"github.com/angkut/angkut/apps/internal/application/shipmentapp"
@@ -177,6 +178,10 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	aiSvc := aiapp.New(aiapp.Deps{Stores: stores, Log: log})
 	anSvc := analyticsapp.New(analyticsapp.Deps{Stores: stores})
 	aiHandler := handler.NewAIHandler(aiSvc, anSvc)
+
+	// ── Platform: API keys, search, quota (TASK-058/059/063) ────────────
+	platSvc := platformapp.New(platformapp.Deps{Tx: tx, Stores: stores, Audit: stores.Audit(), Log: log})
+	platformHandler := handler.NewPlatformHandler(platSvc)
 	orderSvc := orderapp.New(orderapp.Deps{
 		Tx:       tx,
 		Stores:   stores,
@@ -334,6 +339,7 @@ func buildRouter(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, rdb *
 	deps.InventoryHandler = inventoryHandler
 	deps.MoneyHandler = moneyHandler
 	deps.AIHandler = aiHandler
+	deps.PlatformHandler = platformHandler
 	deps.PickupHandler = pickupHandler
 	deps.TrackingHandler = trackingHandler
 	deps.WebhookHandler = webhookHandler
