@@ -92,6 +92,8 @@ async function onLogout() {
       <main class="shell-content">
         <slot />
       </main>
+
+      <AppAIWidget v-if="isAuthenticated && session" />
     </div>
   </div>
 </template>

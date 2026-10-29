@@ -610,6 +610,21 @@ export const id = {
   'money.mark_paid': 'Tandai lunas',
   'money.refunded': 'Refund tercatat.',
   'money.ledger_title': 'Buku besar (10 terakhir)',
+
+  // Dashboard & AI (TASK-048..055)
+  'dash.shipments_today': 'Pengiriman hari ini',
+  'dash.in_transit': 'Dalam perjalanan',
+  'dash.delivered': 'Terkirim',
+  'dash.cod_balance': 'Saldo COD',
+  'dash.shipping_cost': 'Biaya kirim 30 hari',
+  'dash.avg_days': 'Rata-rata hari kirim',
+  'dash.insights': 'Insight AI',
+  'dash.health': 'Skor kesehatan logistik',
+  'ai.widget_title': 'Asisten AI',
+  'ai.widget_placeholder': 'Tanya apa saja… mis. "berapa ongkir bulan ini?"',
+  'ai.widget_send': 'Kirim',
+  'ai.confirm_yes': 'Ya, lanjutkan',
+  'ai.confirm_no': 'Batal',
 } as const
 
 export type MessageKey = keyof typeof id
