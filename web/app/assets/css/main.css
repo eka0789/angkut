@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 /* Entry CSS aplikasi.
    Urutan penting: Tailwind dulu (layer + preflight), lalu token Angkut, lalu
    base/utilitas kita. Token adalah sumber kebenaran warna/radius/shadow —
@@ -113,6 +114,53 @@ a:hover {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── UI/UX polish global (Trust & Authority) ─────────────────────────── */
+
+/* Fokus keyboard selalu terlihat */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+/* Scrollbar halus */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: var(--radius-pill); border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Semua tombol & elemen klik: pointer + transisi baku */
+button, [role='button'], a, summary, select, label:has(input[type='checkbox']) {
+  cursor: pointer;
+}
+button, a, .card, input, select, textarea {
+  transition: background-color 180ms ease, border-color 180ms ease,
+    color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+}
+
+/* Kartu terangkat halus saat hover (tanpa layout shift) */
+.card:hover { box-shadow: var(--shadow-md); }
+
+/* Heading sedikit rapat agar terlihat modern */
+h1, h2, h3 { letter-spacing: -0.01em; }
+
+/* Tabel: baris interaktif */
+tbody tr { transition: background-color 150ms ease; }
+
+/* Hormati preferensi reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

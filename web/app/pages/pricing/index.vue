@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '~/components/AppIcon.vue'
 // Halaman harga publik (TASK-064): tiga paket sesuai seed plan (free/growth/scale).
 definePageMeta({ layout: 'public' })
 useHead({ title: () => 'Harga — Angkut' })
@@ -34,6 +35,7 @@ const faqs = [
 <template>
   <div class="pricing">
     <header class="hero">
+      <span class="hero-badge"><AppIcon :name='"tag"' :size="14" /> Harga jujur, tumbuh bersama Anda</span>
       <h1>Harga jujur, tumbuh bersama Anda</h1>
       <p>Mulai gratis. Upgrade saat volume Anda bertambah.</p>
     </header>
@@ -88,6 +90,19 @@ const faqs = [
 </template>
 
 <style scoped>
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-primary-hover);
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: var(--radius-pill);
+}
 .hero { text-align: center; padding: var(--space-10) var(--space-4) var(--space-8); }
 .hero h1 { font-size: 32px; margin: 0 0 var(--space-3); }
 .hero p { color: var(--color-ink-secondary); margin: 0; }
@@ -105,7 +120,7 @@ const faqs = [
 .card.highlight { border-color: var(--color-primary); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
 .badge {
   position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-  padding: 2px var(--space-3); background: var(--color-primary); color: var(--color-ink-inverse);
+  padding: 2px var(--space-3); background: var(--color-cta, #f97316); color: #fff;
   border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; white-space: nowrap;
 }
 .card h2 { margin: 0 0 var(--space-2); }

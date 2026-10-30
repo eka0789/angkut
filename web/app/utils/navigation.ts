@@ -17,35 +17,35 @@ export const navSections: NavSection[] = [
   {
     title: 'nav.dashboard',
     items: [
-      { label: 'nav.dashboard', to: '/dashboard', icon: '▦' },
-      { label: 'nav.commandCenter', to: '/command-center', icon: '◎' },
+      { label: 'nav.dashboard', to: '/dashboard', icon: 'grid' },
+      { label: 'nav.commandCenter', to: '/command-center', icon: 'activity' },
     ],
   },
   {
     title: 'nav.operations',
     items: [
-      { label: 'nav.shipments', to: '/shipments', icon: '▤' },
-      { label: 'nav.tracking', to: '/tracking', icon: '⌖' },
-      { label: 'nav.pickup', to: '/shipments/pickup', icon: '⏱' },
-      { label: 'nav.orders', to: '/orders', icon: '⛃' },
-      { label: 'nav.inventory', to: '/inventory', icon: '☰' },
-      { label: 'nav.warehouses', to: '/warehouses', icon: '⌂' },
-      { label: 'nav.customers', to: '/customers', icon: '☺' },
+      { label: 'nav.shipments', to: '/shipments', icon: 'package' },
+      { label: 'nav.tracking', to: '/tracking', icon: 'map-pin' },
+      { label: 'nav.pickup', to: '/shipments/pickup', icon: 'clock' },
+      { label: 'nav.orders', to: '/orders', icon: 'clipboard' },
+      { label: 'nav.inventory', to: '/inventory', icon: 'layers' },
+      { label: 'nav.warehouses', to: '/warehouses', icon: 'home' },
+      { label: 'nav.customers', to: '/customers', icon: 'users' },
     ],
   },
   {
     title: 'nav.money',
     items: [
-      { label: 'nav.money', to: '/finance', icon: '₨' },
-      { label: 'nav.analytics', to: '/analytics', icon: '◔' },
+      { label: 'nav.money', to: '/finance', icon: 'banknote' },
+      { label: 'nav.analytics', to: '/analytics', icon: 'bar-chart' },
     ],
   },
   {
     title: 'nav.intelligence',
     items: [
-      { label: 'nav.aiAssistant', to: '/ai', icon: '✦' },
-      { label: 'nav.settings', to: '/settings/organization', icon: '⚙' },
-      { label: 'nav.addresses', to: '/settings/addresses', icon: '⌖' },
+      { label: 'nav.aiAssistant', to: '/ai', icon: 'sparkles' },
+      { label: 'nav.settings', to: '/settings/organization', icon: 'settings' },
+      { label: 'nav.addresses', to: '/settings/addresses', icon: 'map-pin' },
     ],
   },
 ]

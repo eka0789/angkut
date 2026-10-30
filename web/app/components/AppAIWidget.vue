@@ -175,7 +175,7 @@ function scrollBottom() {
   height: 52px;
   border-radius: 999px;
   border: none;
-  background: var(--color-accent, #0f766e);
+  background: var(--color-cta, #f97316);
   color: #fff;
   font-size: 22px;
   cursor: pointer;
@@ -222,7 +222,7 @@ function scrollBottom() {
   max-width: 85%;
   white-space: pre-wrap;
 }
-.ai-msg.user { align-self: flex-end; background: var(--color-accent, #0f766e); color: #fff; }
+.ai-msg.user { align-self: flex-end; background: var(--color-cta, #f97316); color: #fff; }
 .ai-msg.assistant { align-self: flex-start; background: var(--color-border); color: var(--color-ink); }
 
 .ai-confirm { display: flex; gap: var(--space-2); }

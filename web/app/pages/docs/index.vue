@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '~/components/AppIcon.vue'
 // Halaman docs publik (TASK-064): ringkasan REST API + contoh cURL.
 definePageMeta({ layout: 'public' })
 useHead({ title: () => 'Dokumentasi API — Angkut' })
@@ -54,6 +55,7 @@ const curlExample = `curl -X POST https://api.angkut.id/api/v1/shipments \\
 <template>
   <div class="docs">
     <header class="hero">
+      <span class="hero-badge"><AppIcon :name='"book"' :size="14" /> Dokumentasi API</span>
       <h1>Dokumentasi API</h1>
       <p>REST API dengan envelope JSON konsisten. Semua mutasi kritis idempoten.</p>
     </header>
@@ -96,6 +98,19 @@ const curlExample = `curl -X POST https://api.angkut.id/api/v1/shipments \\
 </template>
 
 <style scoped>
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-primary-hover);
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: var(--radius-pill);
+}
 .hero { text-align: center; padding: var(--space-10) var(--space-4) var(--space-6); }
 .hero h1 { font-size: 32px; margin: 0 0 var(--space-3); }
 .hero p { color: var(--color-ink-secondary); margin: 0; }

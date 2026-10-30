@@ -12,7 +12,7 @@ useHead({ title: 'Ship smarter. Grow faster.' })
       <p class="hero-eyebrow">
         Platform logistik cerdas untuk bisnis Indonesia
       </p>
-      <h1 class="hero-title">
+        <h1 class="hero-title">
         {{ t('app.tagline') }}
       </h1>
       <p class="hero-sub">

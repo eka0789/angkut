@@ -4,15 +4,17 @@
 
 :root {
   /* ── Brand ─────────────────────────────────────────────────────────── */
-  --color-primary: #1f5eff;
-  --color-primary-hover: #1747c8;
-  --color-primary-soft: #e8efff;
-  --color-accent: #00c48c;
-  --color-accent-soft: #e0f8f1;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #eff6ff;
+  --color-accent: #2563eb;
+  --color-accent-soft: #eff6ff;
+  --color-cta: #f97316;
+  --color-cta-soft: #fff7ed;
 
   /* ── Teks (ink) ────────────────────────────────────────────────────── */
   --color-ink: #0b1220;
-  --color-ink-secondary: #4a5568;
+  --color-ink-secondary: #475569;
   --color-ink-muted: #8a94a6;
   --color-ink-inverse: #ffffff;
 
@@ -58,6 +60,7 @@
   --shadow-sm: 0 1px 3px rgba(11, 18, 32, 0.08), 0 1px 2px rgba(11, 18, 32, 0.04);
   --shadow-md: 0 4px 12px rgba(11, 18, 32, 0.1);
   --shadow-lg: 0 12px 32px rgba(11, 18, 32, 0.16);
+  --shadow-primary: 0 8px 24px rgba(37, 99, 235, 0.25);
 
   /* ── Spacing (basis 4px) ───────────────────────────────────────────── */
   --space-1: 4px;
@@ -72,7 +75,7 @@
   --space-16: 64px;
 
   /* ── Tipografi ─────────────────────────────────────────────────────── */
-  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-ui: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
   --text-xs: 12px;

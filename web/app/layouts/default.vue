@@ -50,7 +50,7 @@ async function onLogout() {
             class="shell-nav-link"
             :class="{ 'is-active': isActive(item.to) }"
           >
-            <span class="shell-nav-icon" aria-hidden="true">{{ item.icon }}</span>
+            <AppIcon :name="item.icon" :size="18" class="shell-nav-icon" aria-hidden="true" />
             <span>{{ t(item.label) }}</span>
           </NuxtLink>
         </div>
@@ -181,7 +181,8 @@ async function onLogout() {
   justify-content: space-between;
   gap: var(--space-4);
   padding: 0 var(--space-6);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;

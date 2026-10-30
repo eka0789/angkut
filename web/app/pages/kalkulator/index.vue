@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '~/components/AppIcon.vue'
 // Kalkulator publik (TASK-064): estimasi biaya berbasis tarif mock yang sama
 // dengan engine (berat chargeable = max(aktual, volumetrik), tarif dasar per
 // berat dari tier kurir mock). Estimasi — harga final lewat /couriers/rates.
@@ -42,6 +43,7 @@ const fmtIDR = (v: number): string => `Rp ${v.toLocaleString('id-ID')}`
 <template>
   <div class="calc">
     <header class="hero">
+      <span class="hero-badge"><AppIcon :name='"calculator"' :size="14" /> Kalkulator Ongkir</span>
       <h1>Kalkulator Ongkir</h1>
       <p>Estimasi cepat biaya pengiriman. Harga final dihitung otomatis saat Anda membuat pengiriman.</p>
     </header>
@@ -134,6 +136,19 @@ const fmtIDR = (v: number): string => `Rp ${v.toLocaleString('id-ID')}`
 </template>
 
 <style scoped>
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-primary-hover);
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+  border-radius: var(--radius-pill);
+}
 .hero { text-align: center; padding: var(--space-10) var(--space-4) var(--space-6); }
 .hero h1 { font-size: 32px; margin: 0 0 var(--space-3); }
 .hero p { color: var(--color-ink-secondary); margin: 0; max-width: 60ch; margin-inline: auto; }
