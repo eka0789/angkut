@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // App shell: sidebar + topbar. Navigasi diringkas ke bagian inti; item lain
 // ditambahkan saat modul terkait diimplementasikan (Phase 3+).
-import { navSections } from '~/utils/navigation'
+import { navSections, sectionTitleForPath } from '~/utils/navigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,7 +61,7 @@ async function onLogout() {
       <header class="shell-topbar">
         <div class="shell-topbar-title">
           <slot name="title">
-            {{ t('nav.dashboard') }}
+            {{ t(sectionTitleForPath(route.path) ?? 'nav.dashboard') }}
           </slot>
         </div>
         <div class="shell-topbar-actions">

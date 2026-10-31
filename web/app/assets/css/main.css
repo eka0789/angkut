@@ -248,3 +248,93 @@ img { transition: opacity 200ms ease; }
 @media (prefers-reduced-motion: reduce) {
   main > *, tbody tr, .ai-fab { animation: none !important; }
 }
+
+/* ── Komponen bersama global ────────────────────────────────────────────
+   Baseline untuk kelas yang dipakai lintas halaman. Halaman dengan gaya
+   scoped sendiri tetap menang (spesifisitas lebih tinggi) — yang tanpa
+   gaya lokal kini tetap tampil sesuai design system. */
+
+.btn-primary, .btn-secondary, .btn-mini, .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 180ms ease, border-color 180ms ease,
+    color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+}
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-ink-inverse);
+  box-shadow: var(--shadow-xs);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-primary);
+}
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border-color: var(--color-border);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.btn-mini {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+.btn:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-mini:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--color-surface-sunken);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+th, td { text-align: left; padding: var(--space-2) var(--space-3); }
+th {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+td { border-bottom: 1px solid var(--color-border); }
+
+.muted { color: var(--color-ink-muted); }
+.mono { font-family: var(--font-mono); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.caps { text-transform: uppercase; }
