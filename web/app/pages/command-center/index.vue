@@ -258,7 +258,9 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 .state { text-align: center; }
 .muted { color: var(--color-ink-muted); font-size: var(--text-sm); }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
 .kpi { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-1); border-left: 4px solid var(--color-border); }
 .kpi.warn { border-left-color: #f59e0b; }
 .kpi.danger { border-left-color: #dc2626; }

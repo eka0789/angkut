@@ -232,7 +232,8 @@ onMounted(async () => {
 .stat-label { font-size: var(--text-xs); text-transform: uppercase; color: var(--color-ink-muted); letter-spacing: 0.04em; }
 .stat-value { font-size: var(--text-lg); font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); align-items: stretch; }
+.cols .panel { height: 100%; }
 .panel { padding: var(--space-4); }
 .panel-title { font-size: var(--text-md); margin: 0 0 var(--space-3); }
 

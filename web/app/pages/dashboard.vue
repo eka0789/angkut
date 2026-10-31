@@ -221,10 +221,12 @@ onMounted(load)
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
+@media (max-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cards { grid-template-columns: 1fr; } }
 .stat {
   padding: var(--space-4);
   display: flex;
@@ -247,7 +249,9 @@ onMounted(load)
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-4);
+  align-items: stretch;
 }
+.cols .panel { height: 100%; }
 .panel {
   padding: var(--space-4);
 }
