@@ -164,3 +164,87 @@ tbody tr { transition: background-color 150ms ease; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Animasi & micro-interaction global (Trust Blue) ─────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.92); }
+  70% { transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@keyframes bell-ring {
+  0%, 80%, 100% { transform: rotate(0); }
+  10% { transform: rotate(12deg); }
+  30% { transform: rotate(-10deg); }
+  50% { transform: rotate(7deg); }
+  70% { transform: rotate(-5deg); }
+}
+
+/* Konten utama masuk dengan fade-up berjenjang */
+main > * { animation: fade-up 420ms ease both; }
+main > *:nth-child(2) { animation-delay: 60ms; }
+main > *:nth-child(3) { animation-delay: 120ms; }
+main > *:nth-child(4) { animation-delay: 180ms; }
+main > *:nth-child(5) { animation-delay: 240ms; }
+
+/* Kartu: hover terangkat + cursor */
+.card { transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; }
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+/* KPI/stat: aksen garis kiri & hover */
+.stat, .kpi { position: relative; overflow: hidden; }
+.stat::before, .kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 40%, transparent));
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.stat:hover::before, .kpi:hover::before { opacity: 1; }
+.stat-value, .kpi-value { transition: color 220ms ease; }
+.stat:hover .stat-value, .kpi:hover .kpi-value { color: var(--color-primary); }
+
+/* Tombol: tekan membumi */
+button:active { transform: translateY(1px); }
+.btn-primary, .btn-secondary, .btn-mini, .btn {
+  box-shadow: var(--shadow-xs);
+}
+.btn-primary:hover:not(:disabled) { box-shadow: var(--shadow-primary); }
+
+/* Tabel: baris masuk & hover */
+tbody tr { animation: fade-in 300ms ease both; }
+tbody tr:hover { background: var(--color-surface-subtle); }
+
+/* Badge notifikasi berdenyut lembut */
+.bell-badge { animation: pulse-soft 2.4s ease-in-out infinite; }
+.bell-btn:hover svg, .bell-btn:hover { animation: bell-ring 0.9s ease; }
+
+/* Link navigasi: ikon bergeser halus */
+.shell-nav-link { transition: background-color 180ms ease, color 180ms ease, padding-left 180ms ease; }
+.shell-nav-link:hover { padding-left: calc(var(--space-3) + 4px); }
+.shell-nav-link.is-active { font-weight: 700; }
+
+/* FAB AI bernapas */
+.ai-fab { animation: pop-in 400ms ease both; transition: transform 200ms ease, box-shadow 200ms ease; }
+.ai-fab:hover { transform: scale(1.06) rotate(-3deg); box-shadow: 0 10px 28px rgba(249, 115, 22, 0.4); }
+
+/* Gambar/logo halus */
+img { transition: opacity 200ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  main > *, tbody tr, .ai-fab { animation: none !important; }
+}

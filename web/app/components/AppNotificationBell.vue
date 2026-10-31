@@ -97,7 +97,7 @@ const relativeTime = (iso: string): string => {
       :aria-label="t('notif.bell_aria')"
       @click="openPanel"
     >
-      <span aria-hidden="true">🔔</span>
+      <AppIcon name="bell" :size="20" />
       <span
         v-if="unread > 0"
         class="bell-badge"

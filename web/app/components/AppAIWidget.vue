@@ -80,7 +80,7 @@ function scrollBottom() {
       :aria-label="t('ai.widget_title')"
       @click="open = !open"
     >
-      <span aria-hidden="true">🤖</span>
+      <AppIcon name="sparkles" :size="24" />
     </button>
 
     <div

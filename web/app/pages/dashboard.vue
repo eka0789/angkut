@@ -92,7 +92,7 @@ onMounted(load)
 
     <template v-else-if="empty">
       <section class="card empty">
-        <p class="empty-icon" aria-hidden="true">▦</p>
+        <p class="empty-icon" aria-hidden="true"><AppIcon name="grid" :size="44" /></p>
         <h2 class="empty-title">
           {{ t('dashboard.emptyTitle') }}
         </h2>
