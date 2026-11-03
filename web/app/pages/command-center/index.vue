@@ -102,11 +102,13 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
 
     <section
       v-if="loading && !kpi"
-      class="card state-wrap"
+      class="skeleton-grid"
     >
-      <p class="state muted">
-        {{ t('common.loading') }}
-      </p>
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="card skeleton-card"
+      />
     </section>
 
     <template v-else-if="kpi">

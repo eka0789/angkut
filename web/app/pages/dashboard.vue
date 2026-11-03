@@ -83,12 +83,19 @@ onMounted(load)
       {{ error }}
     </div>
 
-    <p
-      v-if="loading"
-      class="state muted"
-    >
-      {{ t('common.loading') }}
-    </p>
+    <template v-if="loading">
+      <div class="skeleton-grid">
+        <div
+          v-for="i in 6"
+          :key="i"
+          class="card skeleton-card"
+        />
+      </div>
+      <div class="cols">
+        <div class="card panel skeleton-card" />
+        <div class="card panel skeleton-card" />
+      </div>
+    </template>
 
     <template v-else-if="empty">
       <section class="card empty">
