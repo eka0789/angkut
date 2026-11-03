@@ -85,7 +85,13 @@ func (h *ShipmentHandler) List(w http.ResponseWriter, r *http.Request) {
 		response.Fail(w, err)
 		return
 	}
-	response.List(w, items, map[string]any{
+	// Sama seperti endpoint lain: kirim payload kontrak FE (objek courier,
+	// pricing, dst.) — bukan struct domain mentah.
+	payloads := make([]map[string]any, 0, len(items))
+	for i := range items {
+		payloads = append(payloads, shipmentPayload(&items[i]))
+	}
+	response.List(w, payloads, map[string]any{
 		"total":  total,
 		"limit":  f.Limit,
 		"offset": f.Offset,
