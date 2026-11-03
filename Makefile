@@ -44,6 +44,10 @@ migrate-create: ## Buat pasangan berkas migrasi: make migrate-create name=create
 api: ## Jalankan API server
 	$(GO) run ./api/cmd/api
 
+seed: ## Isi data demo organisasi "berkahjaya" (seed_demo.sql)
+	@test -n "$$DATABASE_URL" || (echo "DATABASE_URL belum diisi"; exit 1)
+	psql "$$DATABASE_URL" -f seed_demo.sql
+
 worker: ## Jalankan background worker
 	$(GO) run ./worker/cmd/worker
 
