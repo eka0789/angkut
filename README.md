@@ -11,7 +11,17 @@
 
 ## Tampilan
 
-| Dasbor | Pusat Kendali |
+| Landing | Dasbor |
+| --- | --- |
+| ![Landing](docs/screenshots/landing.png) | ![Dasbor](docs/screenshots/dashboard.png) |
+| **Pusat Kendali** | **Pengiriman & Label** |
+| ![Pusat Kendali](docs/screenshots/command-center.png) | ![Pengiriman](docs/screenshots/shipments.png) |
+| **Keuangan (COD & Buku Besar)** | **Pesanan** |
+| ![Keuangan](docs/screenshots/finance.png) | ![Pesanan](docs/screenshots/orders.png) |
+| **Inventory Multi-Gudang** | **Lacak Publik** |
+| ![Inventory](docs/screenshots/inventory.png) | ![Lacak](docs/screenshots/tracking.png) |
+| **Asisten AI** | **Masuk** |
+| ![Asisten AI](docs/screenshots/ai.png) | ![Masuk](docs/screenshots/login.png) |
 | --- | --- |
 | ![Dasbor](docs/screenshots/dashboard.png) | ![Pusat Kendali](docs/screenshots/command-center.png) |
 | **Pengiriman & Label** | **Keuangan (COD & Buku Besar)** |
@@ -20,8 +30,6 @@
 | ![Pesanan](docs/screenshots/orders.png) | ![Inventory](docs/screenshots/inventory.png) |
 | **Lacak Publik** | **Asisten AI** |
 | ![Lacak](docs/screenshots/tracking.png) | ![Asisten AI](docs/screenshots/ai.png) |
-
-*Halaman login (split-screen):* ![Login](docs/screenshots/login.png)
 
 ## Fitur
 
