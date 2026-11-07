@@ -115,15 +115,15 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer) })
       <section class="kpi-grid">
         <div class="card kpi warn">
           <span class="kpi-label">{{ t('cc.in_transit') }}</span>
-          <span class="kpi-value">{{ kpi.in_transit }}</span>
+          <span class="kpi-value"><AppCountUp :value="kpi.in_transit" /></span>
         </div>
         <div class="card kpi danger">
           <span class="kpi-label">{{ t('cc.delayed') }}</span>
-          <span class="kpi-value">{{ kpi.delayed }}</span>
+          <span class="kpi-value"><AppCountUp :value="kpi.delayed" /></span>
         </div>
         <div class="card kpi danger">
           <span class="kpi-label">{{ t('cc.failed') }}</span>
-          <span class="kpi-value">{{ kpi.failed }}</span>
+          <span class="kpi-value"><AppCountUp :value="kpi.failed" /></span>
         </div>
         <div class="card kpi">
           <span class="kpi-label">{{ t('cc.cod_held') }}</span>

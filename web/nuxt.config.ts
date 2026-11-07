@@ -34,6 +34,8 @@ export default defineNuxtConfig({
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
     },
+    // Transisi antar halaman (CSS-nya di main.css, lapisan premium).
+    pageTransition: { name: 'page', mode: 'out-in' },
   },
 
   // Transpile paket yang butuh disesuaikan saat develop.

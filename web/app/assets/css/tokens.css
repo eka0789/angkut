@@ -60,7 +60,22 @@
   --shadow-sm: 0 1px 3px rgba(11, 18, 32, 0.08), 0 1px 2px rgba(11, 18, 32, 0.04);
   --shadow-md: 0 4px 12px rgba(11, 18, 32, 0.1);
   --shadow-lg: 0 12px 32px rgba(11, 18, 32, 0.16);
+  --shadow-xl: 0 24px 64px rgba(11, 18, 32, 0.18);
   --shadow-primary: 0 8px 24px rgba(37, 99, 235, 0.25);
+  --shadow-cta: 0 10px 28px rgba(249, 115, 22, 0.32);
+
+  /* ── Gradient merek (lapisan premium) ──────────────────────────────── */
+  --gradient-brand: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #173db3 100%);
+  --gradient-cta: linear-gradient(135deg, #fb923c 0%, #f97316 55%, #ea580c 100%);
+  --gradient-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 251, 0.96));
+  --gradient-heading: linear-gradient(120deg, #0b1220 20%, #1d4ed8 75%, #f97316 115%);
+
+  /* ── Motion (easing & durasi baku animasi premium) ─────────────────── */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 480ms;
 
   /* ── Spacing (basis 4px) ───────────────────────────────────────────── */
   --space-1: 4px;

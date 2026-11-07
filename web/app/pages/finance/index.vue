@@ -159,19 +159,19 @@ onMounted(load)
     >
       <div class="card stat">
         <span class="stat-label">{{ t('money.cod_expected') }}</span>
-        <span class="stat-value">{{ fmtIDR(summary.expected_settlement) }}</span>
+        <span class="stat-value"><AppCountUp :value="summary.expected_settlement" currency /></span>
       </div>
       <div class="card stat">
         <span class="stat-label">{{ t('money.cod_settled') }}</span>
-        <span class="stat-value">{{ fmtIDR(summary.settled) }}</span>
+        <span class="stat-value"><AppCountUp :value="summary.settled" currency /></span>
       </div>
       <div class="card stat">
         <span class="stat-label">{{ t('money.net_cost') }}</span>
-        <span class="stat-value">{{ fmtIDR(financial.net_logistics_cost) }}</span>
+        <span class="stat-value"><AppCountUp :value="financial.net_logistics_cost" currency /></span>
       </div>
       <div class="card stat">
         <span class="stat-label">{{ t('money.refunds') }}</span>
-        <span class="stat-value">{{ fmtIDR(financial.refunds) }}</span>
+        <span class="stat-value"><AppCountUp :value="financial.refunds" currency /></span>
       </div>
     </section>
 

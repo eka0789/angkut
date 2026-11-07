@@ -30,7 +30,6 @@ const health = ref<Health | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
-const fmtIDR = (v: number): string => `Rp ${v.toLocaleString('id-ID')}`
 
 async function load() {
   loading.value = true
@@ -127,27 +126,27 @@ onMounted(load)
       <section class="cards">
         <div class="card stat">
           <span class="stat-label">{{ t('dash.shipments_today') }}</span>
-          <span class="stat-value">{{ kpi.shipments_today }}</span>
+          <span class="stat-value"><AppCountUp :value="kpi.shipments_today" /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('dash.in_transit') }}</span>
-          <span class="stat-value">{{ kpi.in_transit }}</span>
+          <span class="stat-value"><AppCountUp :value="kpi.in_transit" /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('dash.delivered') }}</span>
-          <span class="stat-value">{{ kpi.delivered }}</span>
+          <span class="stat-value"><AppCountUp :value="kpi.delivered" /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('dash.cod_balance') }}</span>
-          <span class="stat-value">{{ fmtIDR(kpi.cod_balance) }}</span>
+          <span class="stat-value"><AppCountUp :value="kpi.cod_balance" currency /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('dash.shipping_cost') }}</span>
-          <span class="stat-value">{{ fmtIDR(kpi.shipping_cost) }}</span>
+          <span class="stat-value"><AppCountUp :value="kpi.shipping_cost" currency /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('dash.avg_days') }}</span>
-          <span class="stat-value">{{ kpi.avg_delivery_days.toFixed(1) }}</span>
+          <span class="stat-value"><AppCountUp :value="kpi.avg_delivery_days" :decimals="1" /></span>
         </div>
       </section>
 

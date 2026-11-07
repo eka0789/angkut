@@ -425,3 +425,330 @@ body:has(.auth-card) {
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--color-border);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LAPISAN PREMIUM "LIQUID LUXURY" (Trust Blue + aksen CTA)
+   Prinsip: semua animasi memakai transform/opacity (GPU-friendly), easing
+   spring/out quart, dan seluruh gerakan dimatikan bila pengguna memilih
+   prefers-reduced-motion.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Transisi antar halaman (dipasang via nuxt.config pageTransition) ── */
+.page-enter-active { transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out); }
+.page-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
+.page-enter-from { opacity: 0; transform: translateY(10px) scale(0.995); }
+.page-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ── Teks heading gradasi merek ──────────────────────────────────────── */
+.text-gradient {
+  background: var(--gradient-heading);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Aurora: orba cahaya melayang (hanya transform, aman GPU) ────────── */
+@keyframes aurora-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(40px, -28px, 0) scale(1.08); }
+  66%  { transform: translate3d(-32px, 18px, 0) scale(0.94); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+.aurora {
+  position: relative;
+  overflow: hidden;
+}
+.aurora::before,
+.aurora::after {
+  content: '';
+  position: absolute;
+  border-radius: var(--radius-pill);
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+.aurora::before {
+  width: 460px;
+  height: 460px;
+  top: -160px;
+  left: -120px;
+  background: radial-gradient(circle at center, rgba(37, 99, 235, 0.14), transparent 65%);
+  animation: aurora-drift 18s ease-in-out infinite;
+}
+.aurora::after {
+  width: 380px;
+  height: 380px;
+  top: -80px;
+  right: -100px;
+  background: radial-gradient(circle at center, rgba(249, 115, 22, 0.1), transparent 65%);
+  animation: aurora-drift 22s ease-in-out infinite reverse;
+}
+.aurora > * { position: relative; z-index: 1; }
+
+/* ── Kartu premium: border gradasi menyapu saat hover (border-beam) ──── */
+@keyframes beam-spin {
+  to { --beam-angle: 360deg; }
+}
+@property --beam-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.card {
+  position: relative;
+}
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    color-mix(in srgb, var(--color-primary) 55%, transparent) 12%,
+    transparent 26%,
+    color-mix(in srgb, var(--color-cta) 45%, transparent) 88%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 320ms var(--ease-out);
+  pointer-events: none;
+}
+.card:hover::after {
+  opacity: 1;
+  animation: beam-spin 4s linear infinite;
+}
+
+/* ── Kartu premium: kilau menyapu (shine sweep via background-position —
+   tanpa overflow:hidden agar konten yang keluar kartu, mis. badge, tetap
+   utuh) ───────────────────────────────────────────────────────────────── */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 42%, rgba(255, 255, 255, 0.5) 50%, transparent 58%);
+  background-size: 220% 100%;
+  background-position: 120% 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.card:hover::before {
+  opacity: 1;
+  animation: shine-sweep 900ms var(--ease-out);
+}
+@keyframes shine-sweep {
+  0%   { background-position: 120% 0; opacity: 0; }
+  25%  { opacity: 0.6; }
+  100% { background-position: -120% 0; opacity: 0; }
+}
+
+/* ── Tombol utama: gradasi + kilau + tekan spring ────────────────────── */
+.btn-primary,
+.public-cta,
+.btn-submit {
+  background: var(--gradient-brand);
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary:hover:not(:disabled),
+.public-cta:hover,
+.btn-submit:hover:not(:disabled) {
+  background: var(--gradient-brand);
+  box-shadow: var(--shadow-primary);
+  transform: translateY(-1px);
+}
+.btn-primary:active, .public-cta:active, .btn-submit:active { transform: translateY(1px) scale(0.99); }
+.btn-primary::after, .public-cta::after, .btn-submit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
+  background-size: 220% 100%;
+  background-position: 120% 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.btn-primary:hover::after, .public-cta:hover::after, .btn-submit:hover::after {
+  opacity: 1;
+  animation: shine-sweep 800ms var(--ease-out);
+}
+
+/* Tombol CTA oranye (aksi komersial) */
+.btn-cta {
+  background: var(--gradient-cta);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.btn-cta:hover { box-shadow: var(--shadow-cta); transform: translateY(-1px); }
+
+/* ── Navigasi shell: pill aktif gradasi + indikator ──────────────────── */
+.shell-nav-link { position: relative; border-radius: var(--radius-md); }
+.shell-nav-link.is-active {
+  background: var(--color-primary-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+.shell-nav-link.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--gradient-brand);
+}
+
+/* ── Tabel premium ───────────────────────────────────────────────────── */
+th {
+  background: linear-gradient(180deg, var(--color-surface-subtle), var(--color-surface));
+}
+tbody tr { position: relative; }
+tbody td:first-child { box-shadow: inset 3px 0 0 transparent; transition: box-shadow 200ms var(--ease-out); }
+tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--color-primary); }
+
+/* ── Badge status hidup: titik berdenyut halus ───────────────────────── */
+.status-badge::before { transition: transform 200ms var(--ease-spring); }
+.status-badge:hover::before { transform: scale(1.35); }
+
+/* ── Marquee kurir (landing) ─────────────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee { overflow: hidden; position: relative; }
+.marquee-track {
+  display: flex;
+  gap: var(--space-8);
+  width: max-content;
+  animation: marquee 26s linear infinite;
+  will-change: transform;
+}
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* ── Orba hero landing (float lambat, iridescent) ────────────────────── */
+@keyframes orb-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(18px, -26px, 0) rotate(4deg); }
+}
+.hero-orb {
+  position: absolute;
+  border-radius: var(--radius-pill);
+  filter: blur(60px);
+  pointer-events: none;
+  will-change: transform;
+  animation: orb-float 14s ease-in-out infinite;
+}
+.hero-orb.o1 { width: 420px; height: 420px; background: rgba(37, 99, 235, 0.16); top: -120px; left: -80px; }
+.hero-orb.o2 { width: 340px; height: 340px; background: rgba(249, 115, 22, 0.12); top: -40px; right: -60px; animation-delay: -5s; }
+.hero-orb.o3 { width: 260px; height: 260px; background: rgba(124, 92, 255, 0.10); bottom: -90px; left: 35%; animation-delay: -9s; }
+
+/* ── Panel CTA band gradasi ──────────────────────────────────────────── */
+.cta-band {
+  background:
+    radial-gradient(ellipse 80% 120% at 15% 0%, rgba(255, 255, 255, 0.14), transparent 60%),
+    var(--gradient-brand);
+  color: var(--color-ink-inverse);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+.cta-band::before {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: var(--radius-pill);
+  background: rgba(249, 115, 22, 0.25);
+  filter: blur(70px);
+  right: -90px;
+  bottom: -140px;
+  animation: orb-float 16s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Langkah bernomor (how-it-works) ─────────────────────────────────── */
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-brand);
+  color: var(--color-ink-inverse);
+  font-weight: 800;
+  font-size: var(--text-md);
+  box-shadow: var(--shadow-primary);
+}
+
+/* ── Ikon fitur: kotak gradasi lembut + zoom spring saat hover ───────── */
+.feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  transition: transform 260ms var(--ease-spring), background-color 200ms ease, box-shadow 200ms ease;
+}
+.card:hover .feature-icon, .feature-card:hover .feature-icon {
+  transform: scale(1.12) rotate(-4deg);
+  box-shadow: var(--shadow-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+}
+
+/* ── Skor kesehatan: cincin gradasi ──────────────────────────────────── */
+.score-ring { position: relative; }
+.score-ring::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  background: conic-gradient(var(--color-cta), var(--color-primary), var(--color-cta));
+  filter: blur(14px);
+  opacity: 0.25;
+  z-index: 0;
+}
+
+/* ── Batang chart tumbuh saat masuk ──────────────────────────────────── */
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.bars .bar, .bar-col .bar {
+  transform-origin: bottom;
+  animation: bar-grow 700ms var(--ease-out) both;
+}
+.bars .bar-col:nth-child(2) .bar { animation-delay: 60ms; }
+.bars .bar-col:nth-child(3) .bar { animation-delay: 120ms; }
+.bars .bar-col:nth-child(4) .bar { animation-delay: 180ms; }
+.bars .bar-col:nth-child(5) .bar { animation-delay: 240ms; }
+.bars .bar-col:nth-child(6) .bar { animation-delay: 300ms; }
+
+/* ── Reduced motion: matikan seluruh lapisan premium ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .aurora::before, .aurora::after,
+  .hero-orb, .cta-band::before,
+  .marquee-track, .bars .bar, .bar-col .bar,
+  .card::after, .card::before,
+  .btn-primary::after, .public-cta::after, .btn-submit::after {
+    animation: none !important;
+  }
+  .page-enter-active, .page-leave-active { transition: none; }
+}

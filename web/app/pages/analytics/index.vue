@@ -86,15 +86,15 @@ onMounted(async () => {
       <section class="cards">
         <div class="card stat">
           <span class="stat-label">{{ t('an.cost_30d') }}</span>
-          <span class="stat-value">{{ fmtIDR(totalCost30) }}</span>
+          <span class="stat-value"><AppCountUp :value="totalCost30" currency /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('an.avg_days') }}</span>
-          <span class="stat-value">{{ dash.kpi.avg_delivery_days.toFixed(1) }}</span>
+          <span class="stat-value"><AppCountUp :value="dash.kpi.avg_delivery_days" :decimals="1" /></span>
         </div>
         <div class="card stat">
           <span class="stat-label">{{ t('dash.health') }}</span>
-          <span class="stat-value">{{ Math.round(health?.score ?? 0) }}/100</span>
+          <span class="stat-value"><AppCountUp :value="Math.round(health?.score ?? 0)" />/100</span>
         </div>
       </section>
 
